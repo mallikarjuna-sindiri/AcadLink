@@ -1,11 +1,17 @@
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getAvatarFallback } from '../utils/avatar';
+import LogoutConfirmModal from './LogoutConfirmModal';
 
 export default function Navbar() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const avatarFallback = getAvatarFallback(user?.name || '');
 
     const handleLogout = () => {
+        setShowLogoutConfirm(false);
         logout();
         navigate('/');
     };
@@ -22,8 +28,8 @@ export default function Navbar() {
                         {user.picture ? (
                             <img src={user.picture} alt={user.name} className="avatar-sm" style={{ width: 28, height: 28, borderRadius: '50%' }} />
                         ) : (
-                            <div className="avatar-sm avatar-placeholder" style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>
-                                {user.name?.[0]}
+                            <div className="avatar-sm avatar-placeholder" style={{ width: 28, height: 28, borderRadius: '50%', background: avatarFallback.background, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>
+                                {avatarFallback.initial}
                             </div>
                         )}
                         <span className="user-chip-name">{user.name}</span>
@@ -31,11 +37,17 @@ export default function Navbar() {
                             {user.role}
                         </span>
                     </div>
-                    <button className="btn btn-outline btn-sm" onClick={handleLogout}>
+                    <button className="btn btn-outline btn-sm" onClick={() => setShowLogoutConfirm(true)}>
                         Logout
                     </button>
                 </div>
             )}
+
+            <LogoutConfirmModal
+                open={showLogoutConfirm}
+                onCancel={() => setShowLogoutConfirm(false)}
+                onConfirm={handleLogout}
+            />
         </nav>
     );
 }

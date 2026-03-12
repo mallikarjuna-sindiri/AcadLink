@@ -35,7 +35,7 @@ async def google_login(body: GoogleAuthRequest):
 
     email = idinfo.get("email", "").lower().strip()
     name = idinfo.get("name", email.split("@")[0])
-    picture = idinfo.get("picture", "")
+    picture = (idinfo.get("picture") or "").strip()
     google_id = idinfo.get("sub", "")
 
     # ── 2. Domain check ─────────────────────────────────────────
@@ -69,9 +69,13 @@ async def google_login(body: GoogleAuthRequest):
         user = await users_collection.find_one({"_id": result.inserted_id})
     else:
         # Refresh Google profile info
+        updates = {"name": name, "google_id": google_id}
+        if picture:
+            updates["picture"] = picture
+
         await users_collection.update_one(
             {"email": email},
-            {"$set": {"picture": picture, "name": name, "google_id": google_id}},
+            {"$set": updates},
         )
         user = await users_collection.find_one({"email": email})
 
@@ -94,7 +98,7 @@ async def google_login(body: GoogleAuthRequest):
             "name": user["name"],
             "email": user["email"],
             "role": user["role"],
-            "picture": user.get("picture", ""),
+            "picture": picture or user.get("picture", ""),
         },
     }
 

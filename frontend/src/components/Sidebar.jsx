@@ -1,13 +1,18 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getAvatarFallback } from '../utils/avatar';
+import LogoutConfirmModal from './LogoutConfirmModal';
 
 export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const avatarFallback = getAvatarFallback(user?.name || '');
 
     const handleLogout = () => {
+        setShowLogoutConfirm(false);
         logout();
         navigate('/');
     };
@@ -96,8 +101,8 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
                             {user.picture ? (
                                 <img src={user.picture} alt={user.name} className="avatar" style={{ width: 36, height: 36, borderRadius: '50%' }} />
                             ) : (
-                                <div className="avatar avatar-placeholder" style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 'bold' }}>
-                                    {user.name?.[0]}
+                                <div className="avatar avatar-placeholder" style={{ width: 36, height: 36, borderRadius: '50%', background: avatarFallback.background, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 'bold' }}>
+                                    {avatarFallback.initial}
                                 </div>
                             )}
                             <div className="user-info">
@@ -108,11 +113,17 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
                             </div>
                         </div>
                     )}
-                    <button className="btn btn-outline" style={{ width: '100%', borderColor: 'rgba(244,63,94,0.3)', color: '#fb7185' }} onClick={handleLogout}>
+                    <button className="btn btn-outline" style={{ width: '100%', borderColor: 'rgba(244,63,94,0.3)', color: '#fb7185' }} onClick={() => setShowLogoutConfirm(true)}>
                         Log Out
                     </button>
                 </div>
             </aside>
+
+            <LogoutConfirmModal
+                open={showLogoutConfirm}
+                onCancel={() => setShowLogoutConfirm(false)}
+                onConfirm={handleLogout}
+            />
         </>
     );
 }

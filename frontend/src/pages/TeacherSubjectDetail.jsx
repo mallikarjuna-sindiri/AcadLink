@@ -24,7 +24,7 @@ export default function TeacherSubjectDetail() {
     // Assignments
     const [assignments, setAssignments] = useState([]);
     const [showAssignForm, setShowAssignForm] = useState(false);
-    const [assignForm, setAssignForm] = useState({ title: '', description: '', deadline: '', max_marks: 10 });
+    const [assignForm, setAssignForm] = useState({ title: '', description: '', deadline_date: '', deadline_time: '', max_marks: 10 });
     const [selectedAssignment, setSelectedAssignment] = useState(null);
     const [submissions, setSubmissions] = useState([]);
 
@@ -147,13 +147,45 @@ export default function TeacherSubjectDetail() {
         } catch { toast.error('Delete failed'); }
     };
 
+    const downloadMaterial = async (material) => {
+        try {
+            const res = await api.get(
+                `/api/subjects/${subjectId}/materials/${material.id}/download`,
+                { responseType: 'blob' }
+            );
+            const blobUrl = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = material.file_name || `${material.title || 'material'}`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(blobUrl);
+        } catch {
+            toast.error('Failed to download material');
+        }
+    };
+
     // ── Assignment ────────────────────────────────────────────────
     const createAssignment = async (e) => {
         e.preventDefault();
+
+        if (!assignForm.deadline_date || !assignForm.deadline_time) {
+            toast.error('Please select both deadline date and time');
+            return;
+        }
+
+        const deadline = `${assignForm.deadline_date}T${assignForm.deadline_time}:00`;
+
         try {
-            await api.post(`/api/subjects/${subjectId}/assignments/`, assignForm);
+            await api.post(`/api/subjects/${subjectId}/assignments/`, {
+                title: assignForm.title,
+                description: assignForm.description,
+                deadline,
+                max_marks: assignForm.max_marks,
+            });
             toast.success('Assignment created');
-            setAssignForm({ title: '', description: '', deadline: '', max_marks: 10 });
+            setAssignForm({ title: '', description: '', deadline_date: '', deadline_time: '', max_marks: 10 });
             setShowAssignForm(false);
             const res = await api.get(`/api/subjects/${subjectId}/assignments/`);
             setAssignments(res.data);
@@ -344,8 +376,9 @@ export default function TeacherSubjectDetail() {
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
-                                            <a href={`http://localhost:8000/api/subjects/${subjectId}/materials/${m.id}/download`}
-                                                target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">⬇ Download</a>
+                                            <button className="btn btn-outline btn-sm" onClick={() => downloadMaterial(m)}>
+                                                ⬇ Download
+                                            </button>
                                             <button className="btn btn-danger btn-sm" onClick={() => deleteMaterial(m.id)}>🗑</button>
                                         </div>
                                     </div>
@@ -610,10 +643,17 @@ export default function TeacherSubjectDetail() {
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                                         <div className="form-group">
-                                            <label className="form-label">Deadline</label>
-                                            <input className="form-input" type="datetime-local" value={assignForm.deadline}
-                                                onChange={e => setAssignForm({ ...assignForm, deadline: e.target.value })} required />
+                                            <label className="form-label">Deadline Date</label>
+                                            <input className="form-input" type="date" value={assignForm.deadline_date}
+                                                onChange={e => setAssignForm({ ...assignForm, deadline_date: e.target.value })} required />
                                         </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Deadline Time</label>
+                                            <input className="form-input" type="time" value={assignForm.deadline_time}
+                                                onChange={e => setAssignForm({ ...assignForm, deadline_time: e.target.value })} required />
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                                         <div className="form-group">
                                             <label className="form-label">Max Marks</label>
                                             <input className="form-input" type="number" min="1" value={assignForm.max_marks}

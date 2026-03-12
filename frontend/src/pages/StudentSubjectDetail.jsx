@@ -35,6 +35,7 @@ export default function StudentSubjectDetail() {
     const timerRef = useRef(null);
     const [submittingTest, setSubmittingTest] = useState(false);
     const [testResult, setTestResult] = useState(null);
+    const [isExamFullscreen, setIsExamFullscreen] = useState(false);
 
     // Chat
     const [messages, setMessages] = useState([]);
@@ -60,6 +61,15 @@ export default function StudentSubjectDetail() {
     useEffect(() => { escCountRef.current = escCount; }, [escCount]);
     const answersRef = useRef([]);
     useEffect(() => { answersRef.current = myAnswers; }, [myAnswers]);
+
+    const requestExamFullscreen = async () => {
+        try {
+            await document.documentElement.requestFullscreen();
+            setIsExamFullscreen(true);
+        } catch {
+            setIsExamFullscreen(!!document.fullscreenElement);
+        }
+    };
 
     useEffect(() => {
         setMessages([]);
@@ -94,14 +104,24 @@ export default function StudentSubjectDetail() {
     // Fullscreen Monitor
     useEffect(() => {
         const handleFullscreenChange = () => {
-            if (activeTestRef.current && !document.fullscreenElement) {
+            const inFullscreen = !!document.fullscreenElement;
+            if (activeTestRef.current) {
+                setIsExamFullscreen(inFullscreen);
+            }
+
+            if (activeTestRef.current && !inFullscreen) {
                 const currentCount = escCountRef.current + 1;
                 setEscCount(currentCount);
                 if (currentCount >= 3) {
                     toast.error('❌ Exam auto-submitted due to multiple full-screen exits.', { duration: 6000 });
                     handleSubmitTest();
                 } else {
-                    toast.error(`⚠️ Warning: You exited full screen! (${currentCount}/3 warnings)\nReturn to full screen immediately.`, { duration: 5000 });
+                    toast.error('⚠️ Warning: You exited full screen. Return to full screen immediately.', { duration: 5000 });
+                    setTimeout(() => {
+                        if (activeTestRef.current && !document.fullscreenElement) {
+                            requestExamFullscreen();
+                        }
+                    }, 200);
                 }
             }
         };
@@ -197,6 +217,25 @@ export default function StudentSubjectDetail() {
         }
     };
 
+    const downloadMaterial = async (material) => {
+        try {
+            const res = await api.get(
+                `/api/subjects/${subjectId}/materials/${material.id}/download`,
+                { responseType: 'blob' }
+            );
+            const blobUrl = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = material.file_name || `${material.title || 'material'}`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(blobUrl);
+        } catch {
+            toast.error('Failed to download material');
+        }
+    };
+
     // ── Start MCQ Test (Proctored) ────────────────────────────────
     const startTest = async (test) => {
         try {
@@ -228,7 +267,7 @@ export default function StudentSubjectDetail() {
             mediaRecorder.start();
 
             // 4. Request Full Screen
-            await document.documentElement.requestFullscreen();
+            await requestExamFullscreen();
 
             // 5. Load Test
             const res = await api.get(`/api/subjects/${subjectId}/tests/${test.id}`);
@@ -239,6 +278,7 @@ export default function StudentSubjectDetail() {
             setTimeLeft(test.time_limit_minutes * 60);
             setTestResult(null);
             setEscCount(0);
+            setIsExamFullscreen(!!document.fullscreenElement);
 
             // Connect video feed
             setTimeout(() => {
@@ -253,6 +293,7 @@ export default function StudentSubjectDetail() {
             toast.error('You must allow Screen Share, Camera & Full Screen to take the exam.');
             if (screenStreamRef.current) screenStreamRef.current.getTracks().forEach(t => t.stop());
             if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+            setIsExamFullscreen(false);
         }
     };
 
@@ -282,6 +323,7 @@ export default function StudentSubjectDetail() {
                 if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
 
                 setActiveTest(null);
+                setIsExamFullscreen(false);
                 setSubmittingTest(false);
 
                 // Background upload screen share recording
@@ -295,6 +337,7 @@ export default function StudentSubjectDetail() {
             } catch (err) {
                 toast.error(err.response?.data?.detail || 'Submission failed');
                 setActiveTest(null);
+                setIsExamFullscreen(false);
                 setSubmittingTest(false);
             }
         };
@@ -366,8 +409,15 @@ export default function StudentSubjectDetail() {
                     {/* Proctoring Header */}
                     <div style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: '12px', padding: '1rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                            <span style={{ color: '#fb7185', fontWeight: 'bold' }}>🔴 ESC Escapes: {escCount}/3</span>
-                            <div style={{ fontSize: '0.8rem', color: '#ccc', marginTop: '4px' }}>Proctoring Active: Camera & Microphone Recording</div>
+                            <span style={{ color: '#fb7185', fontWeight: 'bold' }}>🔴 Proctoring Active</span>
+                            <div style={{ fontSize: '0.8rem', color: '#ccc', marginTop: '4px' }}>Camera, microphone, and fullscreen monitoring enabled</div>
+                            {!isExamFullscreen && (
+                                <div style={{ marginTop: '0.5rem' }}>
+                                    <button className="btn btn-danger btn-sm" onClick={requestExamFullscreen}>
+                                        Return to Fullscreen
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         <div className={`timer ${timeLeft < 60 ? 'animate-pulse' : ''}`} style={{ fontSize: '1.5rem', fontWeight: 900, color: timeLeft < 60 ? '#fb7185' : '#fff' }}>
                             ⏱ {formatTime(timeLeft)}
@@ -382,6 +432,11 @@ export default function StudentSubjectDetail() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '4rem' }}>
+                        {!isExamFullscreen && (
+                            <div className="alert alert-error" style={{ marginBottom: '0.5rem' }}>
+                                Fullscreen is required to answer questions. Click "Return to Fullscreen" to continue.
+                            </div>
+                        )}
                         {testQuestions.map((q, qi) => (
                             <div key={qi} className="mcq-question-card animate-fade" style={{ background: '#171717', border: '1px solid #333' }}>
                                 <p className="font-bold mb-3" style={{ fontSize: '1.05rem' }}>
@@ -393,6 +448,10 @@ export default function StudentSubjectDetail() {
                                             <div key={oi} className={`mcq-option ${myAnswers[qi] === oi ? 'selected' : ''}`}
                                                 style={{ border: myAnswers[qi] === oi ? '1px solid var(--accent)' : '1px solid #444', background: myAnswers[qi] === oi ? 'rgba(99,102,241,0.1)' : 'transparent' }}
                                                 onClick={() => {
+                                                    if (!isExamFullscreen) {
+                                                        toast.error('Return to full screen to answer.');
+                                                        return;
+                                                    }
                                                     const updated = [...myAnswers];
                                                     updated[qi] = oi;
                                                     setMyAnswers(updated);
@@ -493,8 +552,9 @@ export default function StudentSubjectDetail() {
                                                 <span className="text-xs text-muted">{m.uploaded_at ? new Date(m.uploaded_at).toLocaleDateString() : ''}</span>
                                             </div>
                                         </div>
-                                        <a href={`http://localhost:8000/api/subjects/${subjectId}/materials/${m.id}/download`}
-                                            target="_blank" rel="noreferrer" className="btn btn-teal btn-sm">⬇ Download</a>
+                                        <button className="btn btn-teal btn-sm" onClick={() => downloadMaterial(m)}>
+                                            ⬇ Download
+                                        </button>
                                     </div>
                                 ))}
                             </div>
