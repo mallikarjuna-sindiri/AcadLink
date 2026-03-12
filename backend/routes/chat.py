@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from models.chat import ChatMessageCreate
 from utils.dependencies import require_any
 from config import chat_messages_collection
@@ -11,14 +11,23 @@ router = APIRouter(prefix="/api/subjects/{subject_id}/chat", tags=["Chat"])
 @router.get("/")
 async def get_messages(
     subject_id: str,
+    since: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=200),
     current_user: dict = Depends(require_any),
 ):
+    query = {"subject_id": subject_id}
+    if since:
+        query["sent_at"] = {"$gt": since}
+
     messages = (
         await chat_messages_collection
-        .find({"subject_id": subject_id})
-        .sort("sent_at", 1)
-        .to_list(200)  # last 200 messages
+        .find(query)
+        .sort("sent_at", -1)
+        .to_list(limit)
     )
+
+    messages.reverse()
+
     return [
         {
             "id": str(m["_id"]),
@@ -41,13 +50,17 @@ async def send_message(
     body: ChatMessageCreate,
     current_user: dict = Depends(require_any),
 ):
+    clean_message = body.message.strip()
+    if not clean_message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
     msg = {
         "subject_id": subject_id,
         "sender_id": current_user["id"],
         "sender_name": current_user["name"],
         "sender_role": current_user["role"],
         "sender_picture": current_user.get("picture", ""),
-        "message": body.message.strip(),
+        "message": clean_message,
         "sent_at": datetime.utcnow().isoformat(),
     }
     result = await chat_messages_collection.insert_one(msg)

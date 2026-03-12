@@ -42,6 +42,7 @@ export default function StudentSubjectDetail() {
     const [sendingMsg, setSendingMsg] = useState(false);
     const chatEndRef = useRef(null);
     const chatPollRef = useRef(null);
+    const chatLastSentAtRef = useRef(null);
 
     // Proctoring State
     const [escCount, setEscCount] = useState(0);
@@ -60,12 +61,16 @@ export default function StudentSubjectDetail() {
     const answersRef = useRef([]);
     useEffect(() => { answersRef.current = myAnswers; }, [myAnswers]);
 
-    useEffect(() => { loadAll(); }, [subjectId]);
+    useEffect(() => {
+        setMessages([]);
+        chatLastSentAtRef.current = null;
+        loadAll();
+    }, [subjectId]);
 
     useEffect(() => {
         if (activeTab === 'chat') {
-            loadChat();
-            chatPollRef.current = setInterval(loadChat, 5000);
+            loadChat(true);
+            chatPollRef.current = setInterval(() => loadChat(false), 3000);
         } else {
             clearInterval(chatPollRef.current);
         }
@@ -142,10 +147,28 @@ export default function StudentSubjectDetail() {
         }
     };
 
-    const loadChat = async () => {
+    const loadChat = async (forceInitial = false) => {
         try {
-            const res = await api.get(`/api/subjects/${subjectId}/chat/`);
-            setMessages(res.data);
+            const params = {};
+            if (!forceInitial && chatLastSentAtRef.current) {
+                params.since = chatLastSentAtRef.current;
+            } else {
+                params.limit = 120;
+            }
+
+            const res = await api.get(`/api/subjects/${subjectId}/chat/`, { params });
+            const incoming = Array.isArray(res.data) ? res.data : [];
+            if (incoming.length === 0) return;
+
+            chatLastSentAtRef.current = incoming[incoming.length - 1]?.sent_at || chatLastSentAtRef.current;
+
+            setMessages(prev => {
+                if (forceInitial || prev.length === 0) return incoming;
+                const existing = new Set(prev.map(m => m.id));
+                const fresh = incoming.filter(m => !existing.has(m.id));
+                if (fresh.length === 0) return prev;
+                return [...prev, ...fresh];
+            });
         } catch { }
     };
 
@@ -290,13 +313,27 @@ export default function StudentSubjectDetail() {
     // ── Chat ─────────────────────────────────────────────────────
     const sendMessage = async (e) => {
         e.preventDefault();
-        if (!chatMsg.trim()) return;
+        const message = chatMsg.trim();
+        if (!message) return;
         setSendingMsg(true);
+        setChatMsg('');
         try {
-            const res = await api.post(`/api/subjects/${subjectId}/chat/`, { message: chatMsg });
+            const res = await api.post(`/api/subjects/${subjectId}/chat/`, { message });
             setMessages(prev => [...prev, res.data]);
-            setChatMsg('');
-        } catch { toast.error('Failed to send'); } finally { setSendingMsg(false); }
+            chatLastSentAtRef.current = res.data?.sent_at || chatLastSentAtRef.current;
+        } catch {
+            setChatMsg(message);
+            toast.error('Failed to send');
+        } finally { setSendingMsg(false); }
+    };
+
+    const handleChatInputKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (!sendingMsg && chatMsg.trim()) {
+                e.currentTarget.form?.requestSubmit();
+            }
+        }
     };
 
     const formatTime = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
@@ -693,7 +730,7 @@ export default function StudentSubjectDetail() {
                             </div>
                             <form className="chat-input-bar" onSubmit={sendMessage}>
                                 <input className="chat-input" placeholder="Ask a doubt or message your teacher…"
-                                    value={chatMsg} onChange={e => setChatMsg(e.target.value)} />
+                                    value={chatMsg} onChange={e => setChatMsg(e.target.value)} onKeyDown={handleChatInputKeyDown} />
                                 <button type="submit" className="btn btn-primary btn-sm" disabled={sendingMsg || !chatMsg.trim()}>
                                     Send
                                 </button>

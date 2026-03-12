@@ -7,7 +7,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from routes import auth, admin, subjects, materials, assignments, mcq, chat
-from config import UPLOAD_DIR
+from config import UPLOAD_DIR, chat_messages_collection
 
 security = HTTPBasic()
 
@@ -30,6 +30,14 @@ app = FastAPI(
     redoc_url=None, 
     openapi_url=None,
 )
+
+
+@app.on_event("startup")
+async def create_indexes():
+    await chat_messages_collection.create_index([
+        ("subject_id", 1),
+        ("sent_at", -1),
+    ])
 
 # --- Secured Documentation Routes ---
 @app.get("/docs", include_in_schema=False)

@@ -60,7 +60,7 @@ async def create_subject(
             break
 
     # Embed full join URL using local network IP so it scan directly on phone
-    qr_url = f"http://192.168.31.124:5173/?joinCode={code}"
+    qr_url = f"http://localhost:5173/?joinCode={code}"
     qr = generate_qr_base64(qr_url)
 
     subject = {
