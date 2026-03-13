@@ -6,7 +6,7 @@ from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routes import auth, admin, subjects, materials, assignments, mcq, chat
+from routes import auth, admin, subjects, materials, assignments, mcq, chat, notifications
 from config import UPLOAD_DIR, chat_messages_collection
 
 security = HTTPBasic()
@@ -72,6 +72,7 @@ app.include_router(materials.router)
 app.include_router(assignments.router)
 app.include_router(mcq.router)
 app.include_router(chat.router)
+app.include_router(notifications.router)
 
 
 @app.get("/")

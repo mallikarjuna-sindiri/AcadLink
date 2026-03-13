@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAvatarFallback } from '../utils/avatar';
 import LogoutConfirmModal from './LogoutConfirmModal';
@@ -7,12 +7,14 @@ import LogoutConfirmModal from './LogoutConfirmModal';
 export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [isOpen, setIsOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [avatarLoadError, setAvatarLoadError] = useState(false);
     const avatarFallback = getAvatarFallback(user?.name || '');
 
     const hasValidAvatar = Boolean(user?.picture) && !avatarLoadError;
+    const notificationsPath = user ? `/${user.role}/notifications` : '/';
 
     useEffect(() => {
         setAvatarLoadError(false);
@@ -58,8 +60,11 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
                         {!isSubjectContext ? (
                             // General Dashboard Links based on Role
                             <>
-                                <button className="sidebar-link active" onClick={() => navigate(dashboardPath)}>
+                                <button className={`sidebar-link ${location.pathname === dashboardPath ? 'active' : ''}`} onClick={() => navigate(dashboardPath)}>
                                     <span className="icon">🏠</span> Home Dashboard
+                                </button>
+                                <button className={`sidebar-link ${location.pathname === notificationsPath ? 'active' : ''}`} onClick={() => navigate(notificationsPath)}>
+                                    <span className="icon">🔔</span> Notifications
                                 </button>
                                 {/* Add generic placeholders for future global features if needed */}
                             </>
@@ -97,6 +102,17 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
                                         {t.label}
                                     </button>
                                 ))}
+
+                                <button
+                                    className={`sidebar-link ${location.pathname === notificationsPath ? 'active' : ''}`}
+                                    onClick={() => {
+                                        navigate(notificationsPath);
+                                        setIsOpen(false);
+                                    }}
+                                >
+                                    <span className="icon">🔔</span>
+                                    Notifications
+                                </button>
                             </>
                         )}
                     </nav>

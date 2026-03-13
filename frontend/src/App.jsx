@@ -8,6 +8,7 @@ import TeacherDashboard from './pages/TeacherDashboard';
 import TeacherSubjectDetail from './pages/TeacherSubjectDetail';
 import StudentDashboard from './pages/StudentDashboard';
 import StudentSubjectDetail from './pages/StudentSubjectDetail';
+import NotificationsPage from './pages/NotificationsPage';
 
 function Unauthorized() {
   return (
@@ -49,11 +50,21 @@ export default function App() {
               <AdminDashboard />
             </ProtectedRoute>
           } />
+          <Route path="/admin/notifications" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <NotificationsPage />
+            </ProtectedRoute>
+          } />
 
           {/* Teacher */}
           <Route path="/teacher" element={
             <ProtectedRoute allowedRoles={['teacher']}>
               <TeacherDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/teacher/notifications" element={
+            <ProtectedRoute allowedRoles={['teacher']}>
+              <NotificationsPage />
             </ProtectedRoute>
           } />
           <Route path="/teacher/subject/:subjectId" element={
@@ -66,6 +77,11 @@ export default function App() {
           <Route path="/student" element={
             <ProtectedRoute allowedRoles={['student']}>
               <StudentDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/student/notifications" element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <NotificationsPage />
             </ProtectedRoute>
           } />
           <Route path="/student/subject/:subjectId" element={
