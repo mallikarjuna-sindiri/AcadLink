@@ -76,6 +76,17 @@ export default function AdminDashboard() {
         }
     };
 
+    const deleteSubject = async (subject) => {
+        if (!confirm(`Delete subject "${subject.name}" (${subject.subject_code})? This cannot be undone.`)) return;
+        try {
+            await api.delete(`/api/admin/subject/${subject.id}`);
+            toast.success('Subject deleted');
+            loadDashboard();
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Failed to delete subject');
+        }
+    };
+
     const TABS = [
         { id: 'overview', label: '📊 Overview' },
         { id: 'teachers', label: `👨‍🏫 Teachers (${teachers.length})` },
@@ -268,7 +279,7 @@ export default function AdminDashboard() {
                             <div className="table-wrapper">
                                 <table>
                                     <thead>
-                                        <tr><th>Subject</th><th>Code</th><th>Year / Sem / Branch</th><th>Teacher</th><th>Students</th><th>Created</th></tr>
+                                        <tr><th>Subject</th><th>Code</th><th>Year / Sem / Branch</th><th>Teacher</th><th>Students</th><th>Created</th><th>Action</th></tr>
                                     </thead>
                                     <tbody>
                                         {subjects.map(s => (
@@ -279,6 +290,11 @@ export default function AdminDashboard() {
                                                 <td className="text-sm">{s.teacher_name}</td>
                                                 <td><span className="badge badge-student">{s.student_count} enrolled</span></td>
                                                 <td className="text-xs text-muted">{s.created_at ? new Date(s.created_at).toLocaleDateString() : '—'}</td>
+                                                <td>
+                                                    <button className="btn btn-danger btn-sm" onClick={() => deleteSubject(s)}>
+                                                        Delete
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

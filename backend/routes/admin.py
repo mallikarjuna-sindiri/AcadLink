@@ -1,7 +1,17 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from models.user import TeacherCreate
 from utils.dependencies import require_admin
-from config import users_collection, subjects_collection, subject_members_collection
+from config import (
+    users_collection,
+    subjects_collection,
+    subject_members_collection,
+    materials_collection,
+    assignments_collection,
+    submissions_collection,
+    mcq_tests_collection,
+    mcq_attempts_collection,
+    chat_messages_collection,
+)
 from bson import ObjectId
 from datetime import datetime
 
@@ -131,3 +141,34 @@ async def delete_teacher(teacher_id: str, current_user: dict = Depends(require_a
 
     await users_collection.delete_one({"_id": obj_id})
     return {"message": "Teacher deleted"}
+
+
+# ── Delete subject ───────────────────────────────────────────────────────────
+@router.delete("/subject/{subject_id}")
+async def delete_subject(subject_id: str, current_user: dict = Depends(require_admin)):
+    try:
+        obj_id = ObjectId(subject_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid subject ID")
+
+    subject = await subjects_collection.find_one({"_id": obj_id})
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    assignment_ids = [str(a["_id"]) for a in await assignments_collection.find({"subject_id": subject_id}).to_list(None)]
+    test_ids = [str(t["_id"]) for t in await mcq_tests_collection.find({"subject_id": subject_id}).to_list(None)]
+
+    await subjects_collection.delete_one({"_id": obj_id})
+    await subject_members_collection.delete_many({"subject_id": subject_id})
+    await materials_collection.delete_many({"subject_id": subject_id})
+    await assignments_collection.delete_many({"subject_id": subject_id})
+    await submissions_collection.delete_many({"subject_id": subject_id})
+    if assignment_ids:
+        await submissions_collection.delete_many({"assignment_id": {"$in": assignment_ids}})
+    await mcq_tests_collection.delete_many({"subject_id": subject_id})
+    await mcq_attempts_collection.delete_many({"subject_id": subject_id})
+    if test_ids:
+        await mcq_attempts_collection.delete_many({"test_id": {"$in": test_ids}})
+    await chat_messages_collection.delete_many({"subject_id": subject_id})
+
+    return {"message": "Subject deleted"}

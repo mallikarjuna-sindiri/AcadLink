@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAvatarFallback } from '../utils/avatar';
@@ -9,7 +9,14 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
     const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [avatarLoadError, setAvatarLoadError] = useState(false);
     const avatarFallback = getAvatarFallback(user?.name || '');
+
+    const hasValidAvatar = Boolean(user?.picture) && !avatarLoadError;
+
+    useEffect(() => {
+        setAvatarLoadError(false);
+    }, [user?.picture]);
 
     const handleLogout = () => {
         setShowLogoutConfirm(false);
@@ -98,8 +105,14 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
                 <div className="sidebar-footer">
                     {user && (
                         <div className="user-profile mb-3">
-                            {user.picture ? (
-                                <img src={user.picture} alt={user.name} className="avatar" style={{ width: 36, height: 36, borderRadius: '50%' }} />
+                            {hasValidAvatar ? (
+                                <img
+                                    src={user.picture}
+                                    alt={user.name}
+                                    className="avatar"
+                                    style={{ width: 36, height: 36, borderRadius: '50%' }}
+                                    onError={() => setAvatarLoadError(true)}
+                                />
                             ) : (
                                 <div className="avatar avatar-placeholder" style={{ width: 36, height: 36, borderRadius: '50%', background: avatarFallback.background, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 'bold' }}>
                                     {avatarFallback.initial}

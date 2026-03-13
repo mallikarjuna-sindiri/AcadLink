@@ -15,6 +15,7 @@ def serialize_user(user: dict) -> dict:
         "id": str(user["_id"]),
         "name": user.get("name"),
         "email": user.get("email"),
+        "picture": user.get("picture", ""),
         "role": user.get("role"),
         "created_at": user.get("created_at"),
     }

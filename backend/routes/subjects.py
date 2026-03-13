@@ -158,13 +158,54 @@ async def get_subject(subject_id: str, current_user: dict = Depends(require_any)
 @router.get("/{subject_id}/members")
 async def get_members(subject_id: str, current_user: dict = Depends(require_teacher_or_admin)):
     members = await subject_members_collection.find({"subject_id": subject_id}).to_list(None)
+
+    student_obj_ids = []
+    for m in members:
+        sid = m.get("student_id")
+        try:
+            student_obj_ids.append(ObjectId(sid))
+        except Exception:
+            continue
+
+    user_docs = []
+    if student_obj_ids:
+        user_docs = await users_collection.find(
+            {"_id": {"$in": student_obj_ids}},
+            {"picture": 1},
+        ).to_list(None)
+    picture_map = {str(u["_id"]): u.get("picture", "") for u in user_docs}
+
     return [
         {
             "student_id": m.get("student_id"),
             "student_name": m.get("student_name"),
             "student_email": m.get("student_email"),
-            "student_picture": m.get("student_picture", ""),
+            "student_picture": picture_map.get(m.get("student_id")) or m.get("student_picture", ""),
             "joined_at": m.get("joined_at"),
         }
         for m in members
     ]
+
+
+@router.delete("/{subject_id}/members/{student_id}")
+async def remove_member(subject_id: str, student_id: str, current_user: dict = Depends(require_teacher_or_admin)):
+    try:
+        subject_obj_id = ObjectId(subject_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid subject ID")
+
+    subject = await subjects_collection.find_one({"_id": subject_obj_id})
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    if current_user["role"] == "teacher" and subject.get("teacher_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="You can only manage students in your own subjects")
+
+    result = await subject_members_collection.delete_one({
+        "subject_id": subject_id,
+        "student_id": student_id,
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Student is not enrolled in this subject")
+
+    return {"message": "Student removed from subject"}

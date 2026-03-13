@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 import Sidebar from '../components/Sidebar';
 import toast from 'react-hot-toast';
+import { getAvatarFallback } from '../utils/avatar';
 
 export default function TeacherSubjectDetail() {
     const { subjectId } = useParams();
@@ -39,6 +40,7 @@ export default function TeacherSubjectDetail() {
 
     // Members
     const [members, setMembers] = useState([]);
+    const [removingStudentId, setRemovingStudentId] = useState(null);
 
     // Chat
     const [messages, setMessages] = useState([]);
@@ -243,6 +245,21 @@ export default function TeacherSubjectDetail() {
             setAttempts(res.data);
             setSelectedTest(testId);
         } catch { toast.error('Failed to load attempts'); }
+    };
+
+    const removeMember = async (studentId, studentName) => {
+        if (!confirm(`Remove ${studentName} from this subject?`)) return;
+        setRemovingStudentId(studentId);
+        try {
+            await api.delete(`/api/subjects/${subjectId}/members/${studentId}`);
+            setMembers(prev => prev.filter(m => m.student_id !== studentId));
+            setSubject(prev => prev ? { ...prev, student_count: Math.max((prev.student_count || 0) - 1, 0) } : prev);
+            toast.success('Student removed from subject');
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Failed to remove student');
+        } finally {
+            setRemovingStudentId(null);
+        }
     };
 
     // ── Chat ─────────────────────────────────────────────────────
@@ -552,7 +569,7 @@ export default function TeacherSubjectDetail() {
                             <div className="table-wrapper">
                                 <table>
                                     <thead>
-                                        <tr><th>#</th><th>Student</th><th>Email</th><th>Joined</th></tr>
+                                        <tr><th>#</th><th>Student</th><th>Email</th><th>Joined</th><th>Action</th></tr>
                                     </thead>
                                     <tbody>
                                         {members.map((m, i) => (
@@ -563,13 +580,27 @@ export default function TeacherSubjectDetail() {
                                                         {m.student_picture ? (
                                                             <img src={m.student_picture} alt={m.student_name} className="avatar avatar-sm" />
                                                         ) : (
-                                                            <div className="avatar avatar-sm avatar-placeholder">{m.student_name?.[0]}</div>
+                                                            <div
+                                                                className="avatar avatar-sm avatar-placeholder"
+                                                                style={{ background: getAvatarFallback(m.student_name).background }}
+                                                            >
+                                                                {getAvatarFallback(m.student_name).initial}
+                                                            </div>
                                                         )}
                                                         <span className="font-bold">{m.student_name}</span>
                                                     </div>
                                                 </td>
                                                 <td className="text-sm text-muted">{m.student_email}</td>
                                                 <td className="text-xs text-muted">{m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '—'}</td>
+                                                <td>
+                                                    <button
+                                                        className="btn btn-danger btn-sm"
+                                                        onClick={() => removeMember(m.student_id, m.student_name)}
+                                                        disabled={removingStudentId === m.student_id}
+                                                    >
+                                                        {removingStudentId === m.student_id ? 'Removing…' : 'Remove'}
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -595,7 +626,21 @@ export default function TeacherSubjectDetail() {
                                         <div key={m.id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '72%' }}>
                                             {!isMe && (
                                                 <div className="flex items-center gap-1 mb-1">
-                                                    {m.sender_picture ? <img src={m.sender_picture} className="avatar-sm" style={{ borderRadius: '50%', width: 18, height: 18 }} /> : null}
+                                                    {m.sender_picture ? (
+                                                        <img src={m.sender_picture} className="avatar-sm" style={{ borderRadius: '50%', width: 18, height: 18 }} />
+                                                    ) : (
+                                                        <div
+                                                            className="avatar avatar-sm avatar-placeholder"
+                                                            style={{
+                                                                width: 18,
+                                                                height: 18,
+                                                                fontSize: '0.55rem',
+                                                                background: getAvatarFallback(m.sender_name).background,
+                                                            }}
+                                                        >
+                                                            {getAvatarFallback(m.sender_name).initial}
+                                                        </div>
+                                                    )}
                                                     <span className="text-xs text-muted">{m.sender_name}</span>
                                                     <span className={`badge badge-${m.sender_role}`} style={{ fontSize: '0.6rem' }}>{m.sender_role}</span>
                                                 </div>
