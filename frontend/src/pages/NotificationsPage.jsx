@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import api from '../api/client';
@@ -6,6 +7,7 @@ import toast from 'react-hot-toast';
 
 export default function NotificationsPage() {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const latestTimestampRef = useRef('');
@@ -107,6 +109,31 @@ export default function NotificationsPage() {
         return `${Math.floor(hours / 24)}d ago`;
     };
 
+    const tabForType = (type) => {
+        const map = {
+            material: 'materials',
+            assignment: 'assignments',
+            test: 'tests',
+            chat: 'chat',
+            join: 'members',
+        };
+        return map[type] || 'materials';
+    };
+
+    const getNotificationTarget = (notification) => {
+        const role = user?.role;
+        const subjectId = notification?.subject_id;
+        if (!subjectId) return null;
+        if (role !== 'student' && role !== 'teacher') return null;
+
+        const tab = tabForType(notification?.type);
+        const teacherTab = tab === 'performance' ? 'materials' : tab;
+        const studentTab = tab === 'members' ? 'materials' : tab;
+
+        const resolvedTab = role === 'teacher' ? teacherTab : studentTab;
+        return `/${role}/subject/${subjectId}?tab=${resolvedTab}`;
+    };
+
     return (
         <div className="app-shell">
             <Sidebar />
@@ -142,7 +169,18 @@ export default function NotificationsPage() {
                                             <span className="notification-title">{n.title}</span>
                                             <span className="notification-type">{labelForType(n.type)}</span>
                                         </div>
-                                        <span className="notification-time">{formatTimeAgo(n.created_at)}</span>
+                                        <div className="notification-actions">
+                                            <span className="notification-time">{formatTimeAgo(n.created_at)}</span>
+                                            {getNotificationTarget(n) && (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-ghost btn-sm"
+                                                    onClick={() => navigate(getNotificationTarget(n))}
+                                                >
+                                                    Open
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="notification-message">{n.message}</div>
                                     <div className="notification-meta">

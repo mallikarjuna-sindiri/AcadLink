@@ -1394,6 +1394,27 @@ tbody tr:hover {
   white-space: nowrap;
 }
 
+.notification-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-width: 4.5rem;
+}
+
+.notification-actions .btn {
+  min-width: 3.2rem;
+  padding: 0.2rem 0.55rem;
+  margin-top: calc(1rem + 2px);
+  border: 1px solid var(--border-bright);
+}
+
+.notification-actions .notification-time {
+  text-align: center;
+  line-height: 1.1;
+}
+
 .notification-message {
   font-size: 0.9rem;
   color: var(--text-primary);

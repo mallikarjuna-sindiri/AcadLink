@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps, no-empty */
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 import Sidebar from '../components/Sidebar';
@@ -10,10 +10,15 @@ import { getAvatarFallback } from '../utils/avatar';
 export default function TeacherSubjectDetail() {
     const { subjectId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
 
+    const allowedTabs = new Set(['materials', 'assignments', 'tests', 'members', 'chat']);
+    const requestedTab = new URLSearchParams(location.search).get('tab');
+    const initialTab = allowedTabs.has(requestedTab) ? requestedTab : 'materials';
+
     const [subject, setSubject] = useState(null);
-    const [activeTab, setActiveTab] = useState('materials');
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [loading, setLoading] = useState(true);
 
     // Materials
@@ -55,6 +60,15 @@ export default function TeacherSubjectDetail() {
         chatLastSentAtRef.current = null;
         loadAll();
     }, [subjectId]);
+
+    useEffect(() => {
+        const nextTab = new URLSearchParams(location.search).get('tab');
+        if (!nextTab) return;
+        if (allowedTabs.has(nextTab) && nextTab !== activeTab) {
+            setActiveTab(nextTab);
+        }
+        navigate(location.pathname, { replace: true });
+    }, [location.search, location.pathname]);
 
     useEffect(() => {
         if (activeTab === 'chat') {

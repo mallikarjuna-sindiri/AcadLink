@@ -103,16 +103,6 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
                                     </button>
                                 ))}
 
-                                <button
-                                    className={`sidebar-link ${location.pathname === notificationsPath ? 'active' : ''}`}
-                                    onClick={() => {
-                                        navigate(notificationsPath);
-                                        setIsOpen(false);
-                                    }}
-                                >
-                                    <span className="icon">🔔</span>
-                                    Notifications
-                                </button>
                             </>
                         )}
                     </nav>
