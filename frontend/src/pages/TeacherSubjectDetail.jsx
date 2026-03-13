@@ -51,6 +51,7 @@ export default function TeacherSubjectDetail() {
     const [messages, setMessages] = useState([]);
     const [chatMsg, setChatMsg] = useState('');
     const [sendingMsg, setSendingMsg] = useState(false);
+    const [showQrPreview, setShowQrPreview] = useState(false);
     const chatEndRef = useRef(null);
     const chatPollRef = useRef(null);
     const chatLastSentAtRef = useRef(null);
@@ -436,13 +437,48 @@ export default function TeacherSubjectDetail() {
                                     <span>👥 {subject.student_count} students</span>
                                 </div>
                             </div>
-                            <button className="btn btn-outline btn-sm" onClick={() => {
-                                navigator.clipboard.writeText(subject.subject_code);
-                                toast.success('Code copied!');
-                            }}>📋 Copy Code</button>
+                            <div className="flex items-center gap-2">
+                                {subject.qr_code && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline btn-sm"
+                                        onClick={() => setShowQrPreview(true)}
+                                    >
+                                        QR
+                                    </button>
+                                )}
+                                <button className="btn btn-outline btn-sm" onClick={() => {
+                                    navigator.clipboard.writeText(subject.subject_code);
+                                    toast.success('Code copied!');
+                                }}>📋 Copy Code</button>
+                            </div>
                         </div>
                     )}
                 </div>
+
+                {showQrPreview && subject?.qr_code && (
+                    <div className="modal-overlay" onClick={() => setShowQrPreview(false)}>
+                        <div className="modal" style={{ maxWidth: '380px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <span className="modal-title">QR Code — {subject.name}</span>
+                                <button className="modal-close" onClick={() => setShowQrPreview(false)}>✕</button>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                                <img src={subject.qr_code} alt="QR Code" className="qr-img" style={{ width: 200, height: 200 }} />
+                                <div>
+                                    <p className="text-xs text-muted mb-1">Subject Code</p>
+                                    <p className="font-mono font-bold" style={{ fontSize: '1.4rem', color: 'var(--accent-light)', letterSpacing: '0.1em' }}>
+                                        {subject.subject_code}
+                                    </p>
+                                </div>
+                                <button className="btn btn-outline btn-sm" onClick={() => {
+                                    navigator.clipboard.writeText(subject.subject_code);
+                                    toast.success('Code copied!');
+                                }}>📋 Copy Code</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
 
                 {/* ── MATERIALS ──────────────────────────────────────────── */}

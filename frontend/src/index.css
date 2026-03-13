@@ -507,6 +507,55 @@ a:hover {
   color: var(--rose);
 }
 
+/* ── Assignment Status ─────────────────────────────────────── */
+.assignment-status-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.45rem;
+  min-width: 10.5rem;
+}
+
+.assignment-status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.28rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+
+.assignment-status-chip.success {
+  background: rgba(16, 185, 129, 0.16);
+  color: var(--green);
+}
+
+.assignment-status-chip.score {
+  background: rgba(20, 184, 166, 0.14);
+  color: var(--teal);
+}
+
+.assignment-status-chip.pending {
+  background: rgba(244, 63, 94, 0.14);
+  color: #ff6b86;
+}
+
+.assignment-status-chip.expired {
+  background: rgba(244, 63, 94, 0.14);
+  color: var(--rose);
+}
+
+.assignment-feedback {
+  margin: 0;
+  max-width: 13rem;
+  text-align: right;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
 /* ── Table ──────────────────────────────────────────────────── */
 .table-wrapper {
   overflow-x: auto;

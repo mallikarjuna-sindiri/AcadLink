@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 export default function StudentDashboard() {
     const navigate = useNavigate();
     const [subjects, setSubjects] = useState([]);
+    const [showQR, setShowQR] = useState(null);
     const [joinCode, setJoinCode] = useState('');
     const [joining, setJoining] = useState(false);
     const [fetching, setFetching] = useState(true);
@@ -99,26 +100,68 @@ export default function StudentDashboard() {
                         {subjects.map(s => (
                             <div key={s.id} className="subject-card card-interactive"
                                 onClick={() => navigate(`/student/subject/${s.id}`)}>
-                                <div className="flex items-center justify-between mb-2">
+                                <div className="flex justify-between items-center mb-2">
                                     <span className="subject-code">{s.subject_code}</span>
-                                    <span className="badge badge-teacher">{s.branch}</span>
+                                    <button
+                                        className="btn btn-outline btn-sm"
+                                        onClick={e => { e.stopPropagation(); setShowQR(s); }}
+                                    >QR</button>
                                 </div>
                                 <div className="subject-name">{s.name}</div>
                                 <div className="subject-meta">
                                     <span>📅 {s.year}</span>
                                     <span>·</span>
                                     <span>🗓 Sem {s.semester}</span>
+                                    <span>·</span>
+                                    <span>🏫 {s.branch}</span>
                                 </div>
-                                <div className="flex items-center gap-2 mt-3">
+                                <div className="flex items-center justify-between mt-3">
                                     {s.teacher_picture ? (
-                                        <img src={s.teacher_picture} alt={s.teacher_name} className="avatar avatar-sm" />
+                                        <div className="flex items-center gap-2">
+                                            <img src={s.teacher_picture} alt={s.teacher_name} className="avatar avatar-sm" />
+                                            <span className="text-sm text-muted">{s.teacher_name}</span>
+                                        </div>
                                     ) : (
-                                        <div className="avatar avatar-sm avatar-placeholder">{s.teacher_name?.[0]}</div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="avatar avatar-sm avatar-placeholder">{s.teacher_name?.[0]}</div>
+                                            <span className="text-sm text-muted">{s.teacher_name}</span>
+                                        </div>
                                     )}
-                                    <span className="text-sm text-muted">{s.teacher_name}</span>
+                                    <span className="text-xs text-muted">
+                                        {s.created_at ? new Date(s.created_at).toLocaleDateString() : ''}
+                                    </span>
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {/* QR Code Modal */}
+                {showQR && (
+                    <div className="modal-overlay" onClick={() => setShowQR(null)}>
+                        <div className="modal" style={{ maxWidth: '380px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <span className="modal-title">QR Code — {showQR.name}</span>
+                                <button className="modal-close" onClick={() => setShowQR(null)}>✕</button>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                                {showQR.qr_code ? (
+                                    <img src={showQR.qr_code} alt="QR Code" className="qr-img" style={{ width: 200, height: 200 }} />
+                                ) : (
+                                    <div className="text-muted">QR not available</div>
+                                )}
+                                <div>
+                                    <p className="text-xs text-muted mb-1">Subject Code</p>
+                                    <p className="font-mono font-bold" style={{ fontSize: '1.4rem', color: 'var(--accent-light)', letterSpacing: '0.1em' }}>
+                                        {showQR.subject_code}
+                                    </p>
+                                </div>
+                                <button className="btn btn-outline btn-sm" onClick={() => {
+                                    navigator.clipboard.writeText(showQR.subject_code);
+                                    toast.success('Code copied!');
+                                }}>📋 Copy Code</button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

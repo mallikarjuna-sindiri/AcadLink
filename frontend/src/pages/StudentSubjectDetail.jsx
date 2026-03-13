@@ -46,6 +46,7 @@ export default function StudentSubjectDetail() {
     const [messages, setMessages] = useState([]);
     const [chatMsg, setChatMsg] = useState('');
     const [sendingMsg, setSendingMsg] = useState(false);
+    const [showQrPreview, setShowQrPreview] = useState(false);
     const chatEndRef = useRef(null);
     const chatPollRef = useRef(null);
     const chatLastSentAtRef = useRef(null);
@@ -616,6 +617,26 @@ export default function StudentSubjectDetail() {
                             </div>
 
                             <div className="flex items-center gap-2">
+                                {subject.qr_code && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowQrPreview(true)}
+                                        style={{
+                                            border: '1px solid var(--border)',
+                                            borderRadius: 6,
+                                            padding: 0,
+                                            background: 'transparent',
+                                            cursor: 'zoom-in',
+                                            lineHeight: 0,
+                                        }}
+                                    >
+                                        <img
+                                            src={subject.qr_code}
+                                            alt="Subject QR"
+                                            style={{ width: 34, height: 34, borderRadius: 6 }}
+                                        />
+                                    </button>
+                                )}
                                 {subject.teacher_picture ? (
                                     <img src={subject.teacher_picture} alt={subject.teacher_name} className="avatar avatar-sm" style={{ width: 28, height: 28 }} />
                                 ) : (
@@ -626,6 +647,35 @@ export default function StudentSubjectDetail() {
                         </div>
                     )}
                 </div>
+
+                {showQrPreview && subject?.qr_code && (
+                    <div className="modal-overlay" onClick={() => setShowQrPreview(false)}>
+                        <div className="modal" style={{ maxWidth: '380px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <span className="modal-title">QR Code — {subject.name}</span>
+                                <button className="modal-close" onClick={() => setShowQrPreview(false)}>✕</button>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                                <img
+                                    src={subject.qr_code}
+                                    alt="QR Code"
+                                    className="qr-img"
+                                    style={{ width: 200, height: 200 }}
+                                />
+                                <div>
+                                    <p className="text-xs text-muted mb-1">Subject Code</p>
+                                    <p className="font-mono font-bold" style={{ fontSize: '1.4rem', color: 'var(--accent-light)', letterSpacing: '0.1em' }}>
+                                        {subject.subject_code}
+                                    </p>
+                                </div>
+                                <button className="btn btn-outline btn-sm" onClick={() => {
+                                    navigator.clipboard.writeText(subject.subject_code);
+                                    toast.success('Code copied!');
+                                }}>📋 Copy Code</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
 
                 {/* ── MATERIALS ─────────────────────────────────────────── */}
@@ -678,19 +728,21 @@ export default function StudentSubjectDetail() {
                                                     </div>
                                                 </div>
                                                 {mySub?.submitted ? (
-                                                    <div className="text-right">
-                                                        <span className="badge badge-active">✓ Submitted</span>
-                                                        {mySub.marks_obtained !== null && mySub.marks_obtained !== undefined && (
-                                                            <div className="mt-1">
-                                                                <span className="font-bold" style={{ color: 'var(--green)' }}>
-                                                                    {mySub.marks_obtained}/{a.max_marks} marks
-                                                                </span>
-                                                                {mySub.feedback && <p className="text-xs text-muted mt-1">{mySub.feedback}</p>}
-                                                            </div>
-                                                        )}
+                                                    <div className="assignment-status-wrap">
+                                                        <span className="assignment-status-chip success">✓ Submitted</span>
+                                                        <div>
+                                                            {mySub.marks_obtained !== null && mySub.marks_obtained !== undefined ? (
+                                                                <span className="assignment-status-chip score">Marks: {mySub.marks_obtained}/{a.max_marks}</span>
+                                                            ) : (
+                                                                <span className="assignment-status-chip pending">Marks: Pending</span>
+                                                            )}
+                                                        </div>
+                                                        {mySub.feedback && <p className="assignment-feedback">{mySub.feedback}</p>}
                                                     </div>
                                                 ) : isPast ? (
-                                                    <span className="badge badge-inactive">Deadline passed</span>
+                                                    <div className="assignment-status-wrap">
+                                                        <span className="assignment-status-chip expired">Deadline passed</span>
+                                                    </div>
                                                 ) : (
                                                     <button className="btn btn-primary btn-sm"
                                                         onClick={() => setSubmitForm({ assignmentId: a.id, textAnswer: '', file: null })}>
