@@ -667,7 +667,7 @@ tbody tr:hover {
 }
 
 .chat-bubble {
-  max-width: 72%;
+  max-width: 100%;
   padding: 0.65rem 0.9rem;
   border-radius: var(--radius);
   font-size: 0.875rem;

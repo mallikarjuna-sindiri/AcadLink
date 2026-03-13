@@ -44,12 +44,12 @@ export default function AdminDashboard() {
         setLoading(true);
         try {
             await api.post('/api/admin/create-teacher', form);
-            toast.success(`Teacher account created for ${form.email}`);
+            toast.success(`Faculty account created for ${form.email}`);
             setForm({ name: '', email: '' });
             setShowCreateTeacher(false);
             loadDashboard();
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Failed to create teacher');
+            toast.error(err.response?.data?.detail || 'Failed to create faculty');
         } finally {
             setLoading(false);
         }
@@ -66,13 +66,13 @@ export default function AdminDashboard() {
     };
 
     const deleteTeacher = async (id) => {
-        if (!confirm('Delete this teacher account?')) return;
+        if (!confirm('Delete this faculty account?')) return;
         try {
             await api.delete(`/api/admin/teacher/${id}`);
-            toast.success('Teacher deleted');
+            toast.success('Faculty deleted');
             loadDashboard();
         } catch {
-            toast.error('Failed to delete teacher');
+            toast.error('Failed to delete faculty');
         }
     };
 
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
 
     const TABS = [
         { id: 'overview', label: '📊 Overview' },
-        { id: 'teachers', label: `👨‍🏫 Teachers (${teachers.length})` },
+        { id: 'teachers', label: `👨‍🏫 Faculty (${teachers.length})` },
         { id: 'students', label: `👨‍🎓 Students (${students.length})` },
         { id: 'subjects', label: `📚 Subjects (${subjects.length})` },
     ];
@@ -105,7 +105,7 @@ export default function AdminDashboard() {
                         <p className="page-subtitle">System-wide overview & management</p>
                     </div>
                     <button className="btn btn-primary" onClick={() => setShowCreateTeacher(true)}>
-                        + Add Teacher
+                        + Add Faculty
                     </button>
                 </div>
 
@@ -125,7 +125,7 @@ export default function AdminDashboard() {
                         <div className="grid-4 mb-4">
                             {[
                                 { label: 'Total Users', value: stats.total_users, icon: '👥', cls: 'indigo' },
-                                { label: 'Teachers', value: stats.total_teachers, icon: '👨‍🏫', cls: 'purple' },
+                                { label: 'Faculty', value: stats.total_teachers, icon: '👨‍🏫', cls: 'purple' },
                                 { label: 'Students', value: stats.total_students, icon: '👨‍🎓', cls: 'teal' },
                                 { label: 'Subjects', value: stats.total_subjects, icon: '📚', cls: 'amber' },
                                 { label: 'Enrollments', value: stats.total_enrollments, icon: '🔗', cls: 'green' },
@@ -143,28 +143,28 @@ export default function AdminDashboard() {
                         <div className="card">
                             <h3 style={{ marginBottom: '0.75rem' }}>🔔 System Info</h3>
                             <p className="text-sm text-muted">
-                                Teachers can only be created by Admin. Students auto-register via Google OAuth.
+                                Faculty can only be created by Admin. Students auto-register via Google OAuth.
                                 All users must have <strong>@vnrvjiet.in</strong> email addresses.
                             </p>
                         </div>
                     </div>
                 )}
 
-                {/* Teachers */}
+                {/* Faculty */}
                 {activeTab === 'teachers' && (
                     <div className="animate-fade">
                         {teachers.length === 0 ? (
                             <div className="empty-state">
                                 <div className="empty-icon">👨‍🏫</div>
-                                <h3>No teachers yet</h3>
-                                <p>Click "Add Teacher" to create a teacher account.</p>
+                                <h3>No faculty yet</h3>
+                                <p>Click "Add Faculty" to create a faculty account.</p>
                             </div>
                         ) : (
                             <div className="table-wrapper">
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>Teacher</th>
+                                            <th>Faculty</th>
                                             <th>Email</th>
                                             <th>Status</th>
                                             <th>Created</th>
@@ -273,13 +273,13 @@ export default function AdminDashboard() {
                             <div className="empty-state">
                                 <div className="empty-icon">📚</div>
                                 <h3>No subjects created yet</h3>
-                                <p>Teachers create subjects from their dashboard.</p>
+                                <p>Faculty create subjects from their dashboard.</p>
                             </div>
                         ) : (
                             <div className="table-wrapper">
                                 <table>
                                     <thead>
-                                        <tr><th>Subject</th><th>Code</th><th>Year / Sem / Branch</th><th>Teacher</th><th>Students</th><th>Created</th><th>Action</th></tr>
+                                        <tr><th>Subject</th><th>Code</th><th>Year / Sem / Branch</th><th>Faculty</th><th>Students</th><th>Created</th><th>Action</th></tr>
                                     </thead>
                                     <tbody>
                                         {subjects.map(s => (
@@ -305,18 +305,18 @@ export default function AdminDashboard() {
                 )}
             </div>
 
-            {/* Create Teacher Modal */}
+            {/* Create Faculty Modal */}
             {showCreateTeacher && (
                 <div className="modal-overlay" onClick={() => setShowCreateTeacher(false)}>
                     <div className="modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <span className="modal-title">➕ Create Teacher Account</span>
+                            <span className="modal-title">➕ Create Faculty Account</span>
                             <button className="modal-close" onClick={() => setShowCreateTeacher(false)}>✕</button>
                         </div>
                         <form onSubmit={createTeacher}>
                             <div className="modal-body">
                                 <div className="alert alert-info">
-                                    The teacher will login using Google OAuth with this email.
+                                    The faculty member will login using Google OAuth with this email.
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Full Name</label>
@@ -333,7 +333,7 @@ export default function AdminDashboard() {
                             <div className="modal-footer">
                                 <button type="button" className="btn btn-outline" onClick={() => setShowCreateTeacher(false)}>Cancel</button>
                                 <button type="submit" className="btn btn-primary" disabled={loading}>
-                                    {loading ? <><span className="spinner" /> Creating…</> : 'Create Teacher'}
+                                    {loading ? <><span className="spinner" /> Creating…</> : 'Create Faculty'}
                                 </button>
                             </div>
                         </form>

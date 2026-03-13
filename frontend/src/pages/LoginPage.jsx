@@ -110,7 +110,7 @@ export default function LoginPage() {
 
     const DEV_ROLES = [
         { role: 'admin', icon: '🛡️', label: 'Admin', color: '#f59e0b' },
-        { role: 'teacher', icon: '👨‍🏫', label: 'Teacher', color: '#6366f1' },
+        { role: 'teacher', icon: '👨‍🏫', label: 'Faculty', color: '#6366f1' },
         { role: 'student', icon: '👨‍🎓', label: 'Student', color: '#14b8a6' },
     ];
 

@@ -45,13 +45,13 @@ async def require_admin(current_user: dict = Depends(get_current_user)):
 
 async def require_teacher(current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "teacher":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teachers only")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faculty only")
     return current_user
 
 
 async def require_teacher_or_admin(current_user: dict = Depends(get_current_user)):
     if current_user["role"] not in ("admin", "teacher"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teachers or Admins only")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faculty or Admins only")
     return current_user
 
 

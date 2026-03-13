@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import api from '../api/client';
@@ -8,30 +8,65 @@ export default function NotificationsPage() {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const latestTimestampRef = useRef('');
+    const lastFullSyncAtRef = useRef(0);
+
+    useEffect(() => {
+        latestTimestampRef.current = notifications[0]?.created_at || '';
+    }, [notifications]);
 
     useEffect(() => {
         let intervalId;
-        loadNotifications();
-        intervalId = setInterval(loadNotifications, 15000);
+        loadNotifications({ incremental: false, showLoader: true });
+        intervalId = setInterval(() => {
+            const shouldDoFullSync = Date.now() - lastFullSyncAtRef.current > 30000;
+            loadNotifications({ incremental: !shouldDoFullSync, showLoader: false });
+        }, 3000);
 
         return () => clearInterval(intervalId);
     }, []);
 
-    const loadNotifications = async () => {
-        setLoading(true);
+    const loadNotifications = async ({ incremental = false, showLoader = false } = {}) => {
+        if (showLoader) setLoading(true);
+
+        const latestTimestamp = latestTimestampRef.current;
+        const params = incremental
+            ? { since: latestTimestamp, limit: 50 }
+            : { limit: 30 };
+
         try {
-            const res = await api.get('/api/notifications/', { params: { limit: 100 } });
-            setNotifications(Array.isArray(res.data) ? res.data : []);
+            const res = await api.get('/api/notifications/', { params });
+            const incoming = Array.isArray(res.data) ? res.data : [];
+
+            if (!incremental) {
+                setNotifications(incoming);
+                lastFullSyncAtRef.current = Date.now();
+                return;
+            }
+
+            if (incoming.length === 0) return;
+
+            setNotifications((prev) => {
+                const existingIds = new Set(prev.map((n) => n.id));
+                const fresh = incoming.filter((n) => !existingIds.has(n.id));
+                if (fresh.length === 0) return prev;
+                const merged = [...fresh, ...prev];
+                merged.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+                return merged.slice(0, 150);
+            });
         } catch {
-            toast.error('Failed to load notifications');
-            setNotifications([]);
+            if (!incremental) {
+                toast.error('Failed to load notifications');
+                setNotifications([]);
+            }
         } finally {
-            setLoading(false);
+            if (showLoader) setLoading(false);
         }
     };
 
     const iconForType = (type) => {
         const map = {
+            subject: '📚',
             join: '✅',
             material: '📄',
             assignment: '📝',
@@ -43,6 +78,7 @@ export default function NotificationsPage() {
 
     const labelForType = (type) => {
         const map = {
+            subject: 'Subject',
             join: 'Joined',
             material: 'Material',
             assignment: 'Assignment',
@@ -78,9 +114,9 @@ export default function NotificationsPage() {
                 <div className="page-header">
                     <div className="page-title-group">
                         <h1 className="page-title gradient-text">Notifications</h1>
-                        <p className="page-subtitle">All updates across your subjects</p>
+                        <p className="page-subtitle">Live updates across your subjects</p>
                     </div>
-                    <button className="btn btn-outline" onClick={loadNotifications}>
+                    <button className="btn btn-outline" onClick={() => loadNotifications({ incremental: false, showLoader: true })}>
                         Refresh
                     </button>
                 </div>

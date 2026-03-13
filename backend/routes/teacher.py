@@ -7,7 +7,7 @@ from config import users_collection, content_collection
 from bson import ObjectId
 from datetime import datetime
 
-router = APIRouter(prefix="/api/teacher", tags=["Teacher"])
+router = APIRouter(prefix="/api/teacher", tags=["Faculty"])
 
 
 def serialize_user(user: dict) -> dict:
@@ -35,7 +35,7 @@ def serialize_content(c: dict) -> dict:
 
 @router.post("/create-teacher", status_code=status.HTTP_201_CREATED)
 async def create_teacher(body: UserCreate, current_user: dict = Depends(require_teacher_or_admin)):
-    """Teacher or Admin creates another teacher account."""
+    """Faculty or Admin creates another faculty account."""
     existing = await users_collection.find_one({"email": body.email})
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
@@ -50,19 +50,19 @@ async def create_teacher(body: UserCreate, current_user: dict = Depends(require_
         "created_at": datetime.utcnow().isoformat(),
     }
     result = await users_collection.insert_one(new_teacher)
-    return {"message": "Teacher account created successfully", "teacher_id": str(result.inserted_id)}
+    return {"message": "Faculty account created successfully", "teacher_id": str(result.inserted_id)}
 
 
 @router.get("/students")
 async def get_students(current_user: dict = Depends(require_teacher_or_admin)):
-    """Teacher views all student accounts."""
+    """Faculty views all student accounts."""
     students = await users_collection.find({"role": "student"}).to_list(length=None)
     return [serialize_user(s) for s in students]
 
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_content(body: ContentCreate, current_user: dict = Depends(require_teacher_or_admin)):
-    """Teacher uploads notes or assignments."""
+    """Faculty uploads notes or assignments."""
     new_content = {
         "title": body.title,
         "description": body.description,
@@ -77,6 +77,6 @@ async def upload_content(body: ContentCreate, current_user: dict = Depends(requi
 
 @router.get("/my-content")
 async def get_my_content(current_user: dict = Depends(require_teacher_or_admin)):
-    """Teacher views their own uploaded content."""
+    """Faculty views their own uploaded content."""
     items = await content_collection.find({"teacher_id": current_user["id"]}).to_list(length=None)
     return [serialize_content(c) for c in items]

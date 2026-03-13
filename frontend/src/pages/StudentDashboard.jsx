@@ -91,7 +91,7 @@ export default function StudentDashboard() {
                     <div className="empty-state">
                         <div className="empty-icon">📚</div>
                         <h3>No subjects joined yet</h3>
-                        <p>Ask your teacher for the subject code or QR code, then click "Join Subject".</p>
+                        <p>Ask your faculty for the subject code or QR code, then click "Join Subject".</p>
                         <button className="btn btn-primary mt-3" onClick={() => setShowJoin(true)}>+ Join Subject</button>
                     </div>
                 ) : (
@@ -134,7 +134,7 @@ export default function StudentDashboard() {
                         <form onSubmit={joinSubject}>
                             <div className="modal-body">
                                 <div className="alert alert-info">
-                                    Enter the subject code provided by your teacher.
+                                    Enter the subject code provided by your faculty.
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Subject Code</label>

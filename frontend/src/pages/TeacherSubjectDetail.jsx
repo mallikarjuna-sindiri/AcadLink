@@ -266,16 +266,33 @@ export default function TeacherSubjectDetail() {
     const sendMessage = async (e) => {
         e.preventDefault();
         const message = chatMsg.trim();
-        if (!message) return;
+        if (!message || sendingMsg) return;
         setSendingMsg(true);
         setChatMsg('');
         try {
             const res = await api.post(`/api/subjects/${subjectId}/chat/`, { message });
             setMessages(prev => [...prev, res.data]);
             chatLastSentAtRef.current = res.data?.sent_at || chatLastSentAtRef.current;
-        } catch {
-            setChatMsg(message);
-            toast.error('Failed to send');
+        } catch (err) {
+            let delivered = false;
+            try {
+                const recentRes = await api.get(`/api/subjects/${subjectId}/chat/`, { params: { limit: 20 } });
+                const recent = Array.isArray(recentRes.data) ? recentRes.data : [];
+                delivered = recent.some((m) => m.sender_id === user?.id && m.message === message);
+                if (delivered && recent.length > 0) {
+                    chatLastSentAtRef.current = recent[recent.length - 1]?.sent_at || chatLastSentAtRef.current;
+                    setMessages(prev => {
+                        const existing = new Set(prev.map(m => m.id));
+                        const fresh = recent.filter(m => !existing.has(m.id));
+                        return fresh.length ? [...prev, ...fresh] : prev;
+                    });
+                }
+            } catch { }
+
+            if (!delivered) {
+                setChatMsg(message);
+                toast.error(err?.response?.data?.detail || 'Failed to send');
+            }
         } finally { setSendingMsg(false); }
     };
 
@@ -286,6 +303,69 @@ export default function TeacherSubjectDetail() {
                 e.currentTarget.form?.requestSubmit();
             }
         }
+    };
+
+    const parseChatDate = (isoTime) => {
+        if (!isoTime) return new Date('');
+        const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(isoTime);
+        const normalized = hasTimezone ? isoTime : `${isoTime}Z`;
+        return new Date(normalized);
+    };
+
+    const getDateKey = (isoTime) => {
+        const date = parseChatDate(isoTime);
+        if (Number.isNaN(date.getTime())) return '';
+        return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+    };
+
+    const getOrdinalDay = (day) => {
+        if (day > 3 && day < 21) return `${day}th`;
+        switch (day % 10) {
+            case 1: return `${day}st`;
+            case 2: return `${day}nd`;
+            case 3: return `${day}rd`;
+            default: return `${day}th`;
+        }
+    };
+
+    const formatChatDayLabel = (isoTime) => {
+        const date = parseChatDate(isoTime);
+        if (Number.isNaN(date.getTime())) return '';
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        const target = new Date(date);
+        target.setHours(0, 0, 0, 0);
+
+        if (target.getTime() === today.getTime()) return 'Today';
+        if (target.getTime() === yesterday.getTime()) return 'Yesterday';
+
+        const month = date.toLocaleString('en-US', { month: 'short' });
+        return `${getOrdinalDay(date.getDate())} ${month}, ${date.getFullYear()}`;
+    };
+
+    const buildChatTimeline = (items) => {
+        const timeline = [];
+        let lastDateKey = '';
+
+        items.forEach((message) => {
+            const dateKey = getDateKey(message.sent_at);
+            if (dateKey && dateKey !== lastDateKey) {
+                timeline.push({
+                    type: 'separator',
+                    id: `sep-${dateKey}`,
+                    label: formatChatDayLabel(message.sent_at),
+                });
+                lastDateKey = dateKey;
+            }
+            timeline.push({ type: 'message', payload: message });
+        });
+
+        return timeline;
     };
 
     const fileTypeIcon = (t) => ({ pdf: '📄', ppt: '📊', doc: '📝', video: '🎬' }[t] || '📁');
@@ -620,10 +700,21 @@ export default function TeacherSubjectDetail() {
                                         <p>No messages yet. Start the conversation!</p>
                                     </div>
                                 )}
-                                {messages.map(m => {
+                                {buildChatTimeline(messages).map((item) => {
+                                    if (item.type === 'separator') {
+                                        return (
+                                            <div key={item.id} style={{ display: 'flex', justifyContent: 'center', margin: '0.4rem 0' }}>
+                                                <span className="badge" style={{ background: 'rgba(99,102,241,0.12)', color: 'var(--accent-light)' }}>
+                                                    {item.label}
+                                                </span>
+                                            </div>
+                                        );
+                                    }
+
+                                    const m = item.payload;
                                     const isMe = m.sender_id === user?.id;
                                     return (
-                                        <div key={m.id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '72%' }}>
+                                        <div key={m.id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '50%' }}>
                                             {!isMe && (
                                                 <div className="flex items-center gap-1 mb-1">
                                                     {m.sender_picture ? (
@@ -642,12 +733,14 @@ export default function TeacherSubjectDetail() {
                                                         </div>
                                                     )}
                                                     <span className="text-xs text-muted">{m.sender_name}</span>
-                                                    <span className={`badge badge-${m.sender_role}`} style={{ fontSize: '0.6rem' }}>{m.sender_role}</span>
+                                                    <span className={`badge badge-${m.sender_role}`} style={{ fontSize: '0.6rem' }}>
+                                                        {m.sender_role === 'teacher' ? 'FACULTY' : String(m.sender_role || '').toUpperCase()}
+                                                    </span>
                                                 </div>
                                             )}
                                             <div className={`chat-bubble ${isMe ? 'mine' : 'other'}`}>
                                                 {m.message}
-                                                <div className="chat-meta">{new Date(m.sent_at).toLocaleTimeString()}</div>
+                                                <div className="chat-meta">{parseChatDate(m.sent_at).toLocaleTimeString()}</div>
                                             </div>
                                         </div>
                                     );

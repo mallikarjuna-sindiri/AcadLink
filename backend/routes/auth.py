@@ -124,7 +124,7 @@ async def dev_login(body: dict):
     }
     name_map = {
         "admin": "Dev Admin",
-        "teacher": "Dev Teacher",
+        "teacher": "Dev Faculty",
         "student": "Dev Student",
     }
 

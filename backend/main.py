@@ -1,15 +1,16 @@
 import os
 import secrets
+import logging
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from routes import auth, admin, subjects, materials, assignments, mcq, chat, notifications
-from config import UPLOAD_DIR, chat_messages_collection
+from config import UPLOAD_DIR, chat_messages_collection, CORS_ALLOW_ORIGINS, db
 
 security = HTTPBasic()
+logger = logging.getLogger(__name__)
 
 def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
     correct_username = secrets.compare_digest(credentials.username, os.getenv("SWAGGER_USER", "root"))
@@ -34,10 +35,26 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def create_indexes():
-    await chat_messages_collection.create_index([
-        ("subject_id", 1),
-        ("sent_at", -1),
-    ])
+    try:
+        await db.command("ping")
+    except Exception as exc:
+        logger.warning("MongoDB ping failed at startup: %s", exc)
+
+    try:
+        await chat_messages_collection.create_index([
+            ("subject_id", 1),
+            ("sent_at", -1),
+        ])
+    except Exception as exc:
+        logger.warning("Failed to create chat index: %s", exc)
+
+    try:
+        await db["user_notifications"].create_index([
+            ("user_id", 1),
+            ("created_at", -1),
+        ])
+    except Exception as exc:
+        logger.warning("Failed to create user notifications index: %s", exc)
 
 # --- Secured Documentation Routes ---
 @app.get("/docs", include_in_schema=False)
@@ -55,7 +72,7 @@ async def openapi(username: str = Depends(get_current_username)):
 # CORS — allow React dev server and network devices
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOW_ORIGINS or ["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

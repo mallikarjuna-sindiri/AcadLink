@@ -2,7 +2,11 @@ import axios from 'axios';
 
 // Dynamically use the host the app is loaded from, so network devices connect correctly
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE = isLocalhost ? 'http://localhost:8000' : `http://${window.location.hostname}:8000`;
+const envBase = import.meta.env.VITE_API_BASE_URL?.trim();
+const computedBase = isLocalhost
+    ? 'http://localhost:8000'
+    : `${window.location.protocol}//${window.location.hostname}:8000`;
+const API_BASE = (envBase || computedBase).replace(/\/$/, '');
 
 const api = axios.create({ baseURL: API_BASE });
 

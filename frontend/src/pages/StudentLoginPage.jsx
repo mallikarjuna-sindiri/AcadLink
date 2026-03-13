@@ -65,7 +65,7 @@ export default function StudentLoginPage() {
                 </form>
 
                 <div className="auth-footer">
-                    <span>Admin or Teacher?</span>
+                    <span>Admin or Faculty?</span>
                     <Link to="/" className="auth-link">Staff Login →</Link>
                 </div>
             </div>

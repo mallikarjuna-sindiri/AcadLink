@@ -71,7 +71,7 @@ async def create_teacher(body: TeacherCreate, current_user: dict = Depends(requi
         "created_at": datetime.utcnow().isoformat(),
     }
     result = await users_collection.insert_one(new_teacher)
-    return {"message": "Teacher account created", "teacher_id": str(result.inserted_id)}
+    return {"message": "Faculty account created", "teacher_id": str(result.inserted_id)}
 
 
 # ── List teachers ────────────────────────────────────────────────────────────
@@ -137,10 +137,10 @@ async def delete_teacher(teacher_id: str, current_user: dict = Depends(require_a
 
     teacher = await users_collection.find_one({"_id": obj_id, "role": "teacher"})
     if not teacher:
-        raise HTTPException(status_code=404, detail="Teacher not found")
+        raise HTTPException(status_code=404, detail="Faculty not found")
 
     await users_collection.delete_one({"_id": obj_id})
-    return {"message": "Teacher deleted"}
+    return {"message": "Faculty deleted"}
 
 
 # ── Delete subject ───────────────────────────────────────────────────────────

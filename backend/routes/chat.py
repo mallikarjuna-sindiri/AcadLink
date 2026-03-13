@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from models.chat import ChatMessageCreate
 from utils.dependencies import require_any
 from config import chat_messages_collection
-from datetime import datetime
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/api/subjects/{subject_id}/chat", tags=["Chat"])
 
@@ -61,7 +61,7 @@ async def send_message(
         "sender_role": current_user["role"],
         "sender_picture": current_user.get("picture", ""),
         "message": clean_message,
-        "sent_at": datetime.utcnow().isoformat(),
+        "sent_at": datetime.now(timezone.utc).isoformat(),
     }
     result = await chat_messages_collection.insert_one(msg)
     return {
