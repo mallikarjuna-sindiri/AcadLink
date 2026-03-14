@@ -1,4 +1,5 @@
 import os
+from glob import glob
 import aiofiles
 from fastapi import APIRouter, HTTPException, status, Depends, File, UploadFile
 from fastapi.responses import FileResponse
@@ -9,6 +10,15 @@ from bson import ObjectId
 from datetime import datetime
 
 router = APIRouter(prefix="/api/subjects/{subject_id}/tests", tags=["MCQ Tests"])
+
+
+def cleanup_attempt_recordings(attempt_id: str):
+    pattern = os.path.join(UPLOAD_DIR, f"attempt_{attempt_id}_recording.*")
+    for filepath in glob(pattern):
+        try:
+            os.remove(filepath)
+        except OSError:
+            continue
 
 
 def serialize_test(t: dict, hide_answers: bool = True) -> dict:
@@ -75,6 +85,34 @@ async def get_test(
 
     is_teacher = current_user["role"] in ("teacher", "admin")
     return serialize_test(t, hide_answers=not is_teacher)
+
+
+# ── Teacher: update MCQ test ───────────────────────────────────────────────
+@router.put("/{test_id}")
+async def update_test(
+    subject_id: str,
+    test_id: str,
+    body: MCQTestCreate,
+    current_user: dict = Depends(require_teacher_or_admin),
+):
+    existing = await mcq_tests_collection.find_one({"_id": ObjectId(test_id), "subject_id": subject_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    payload = {
+        "title": body.title,
+        "time_limit_minutes": body.time_limit_minutes,
+        "questions": [q.dict() for q in body.questions],
+        "updated_at": datetime.utcnow().isoformat(),
+        "updated_by": current_user["id"],
+    }
+
+    await mcq_tests_collection.update_one(
+        {"_id": ObjectId(test_id)},
+        {"$set": payload},
+    )
+
+    return {"message": "Test updated successfully", "test_id": test_id}
 
 
 # ── Student: submit attempt ──────────────────────────────────────────────────
@@ -176,6 +214,32 @@ async def all_attempts(
         }
         for a in attempts
     ]
+
+
+# ── Teacher: reset one student's attempt ────────────────────────────────────
+@router.delete("/{test_id}/attempts/{attempt_id}")
+async def reset_attempt(
+    subject_id: str,
+    test_id: str,
+    attempt_id: str,
+    current_user: dict = Depends(require_teacher_or_admin),
+):
+    attempt = await mcq_attempts_collection.find_one({
+        "_id": ObjectId(attempt_id),
+        "test_id": test_id,
+        "subject_id": subject_id,
+    })
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+
+    await mcq_attempts_collection.delete_one({"_id": ObjectId(attempt_id)})
+    cleanup_attempt_recordings(attempt_id)
+
+    return {
+        "message": "Attempt reset successfully",
+        "attempt_id": attempt_id,
+        "student_id": attempt.get("student_id"),
+    }
 
 
 # ── Student: upload recording ────────────────────────────────────────

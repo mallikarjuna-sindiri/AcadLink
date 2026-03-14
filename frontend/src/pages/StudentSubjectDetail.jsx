@@ -35,6 +35,9 @@ export default function StudentSubjectDetail() {
     const [activeTest, setActiveTest] = useState(null);
     const [testQuestions, setTestQuestions] = useState([]);
     const [myAnswers, setMyAnswers] = useState([]);
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    const [visitedQuestions, setVisitedQuestions] = useState({});
+    const [reviewQuestions, setReviewQuestions] = useState({});
     const [myAttempts, setMyAttempts] = useState({});
     const [timer, setTimer] = useState(null);
     const [timeLeft, setTimeLeft] = useState(0);
@@ -299,6 +302,9 @@ export default function StudentSubjectDetail() {
             setActiveTest(test);
             setTestQuestions(questions);
             setMyAnswers(new Array(questions.length).fill(-1));
+            setCurrentQuestionIndex(0);
+            setVisitedQuestions({ 0: true });
+            setReviewQuestions({});
             setTimeLeft(test.time_limit_minutes * 60);
             setTestResult(null);
             setEscCount(0);
@@ -375,6 +381,18 @@ export default function StudentSubjectDetail() {
         } else {
             uploadData(null);
         }
+    };
+
+    const confirmAndSubmitTest = async () => {
+        if (submittingTest) return;
+
+        const unanswered = myAnswers.filter((answer) => answer === -1).length;
+        const confirmText = unanswered > 0
+            ? `You still have ${unanswered} unanswered question(s). Submit anyway?`
+            : 'Are you sure you want to submit the test?';
+
+        if (!confirm(confirmText)) return;
+        await handleSubmitTest();
     };
 
     // ── Chat ─────────────────────────────────────────────────────
@@ -503,6 +521,57 @@ export default function StudentSubjectDetail() {
     };
 
     const formatTime = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+    const formatExamClock = (secondsLeft) => {
+        const safeSeconds = Math.max(0, secondsLeft || 0);
+        const hours = Math.floor(safeSeconds / 3600);
+        const minutes = Math.floor((safeSeconds % 3600) / 60);
+        const seconds = safeSeconds % 60;
+        return {
+            hours: String(hours).padStart(2, '0'),
+            minutes: String(minutes).padStart(2, '0'),
+            seconds: String(seconds).padStart(2, '0'),
+        };
+    };
+
+    const goToQuestion = (index) => {
+        if (index < 0 || index >= testQuestions.length) return;
+        setCurrentQuestionIndex(index);
+        setVisitedQuestions((prev) => (prev[index] ? prev : { ...prev, [index]: true }));
+    };
+
+    const answerCurrentQuestion = (optionIndex) => {
+        if (!isExamFullscreen) {
+            toast.error('Return to full screen to answer.');
+            return;
+        }
+        setMyAnswers((prev) => {
+            const updated = [...prev];
+            updated[currentQuestionIndex] = optionIndex;
+            return updated;
+        });
+    };
+
+    const toggleCurrentQuestionReview = () => {
+        setReviewQuestions((prev) => ({
+            ...prev,
+            [currentQuestionIndex]: !prev[currentQuestionIndex],
+        }));
+    };
+
+    const getQuestionStatus = (index) => {
+        if (index === currentQuestionIndex) return 'current';
+        if (reviewQuestions[index]) return 'review';
+        if (myAnswers[index] !== -1) return 'answered';
+        if (visitedQuestions[index]) return 'not-answered';
+        return 'not-attempted';
+    };
+
+    const examClock = formatExamClock(timeLeft);
+    const currentQuestion = testQuestions[currentQuestionIndex];
+    const answeredCount = myAnswers.filter((value) => value !== -1).length;
+    const reviewCount = Object.values(reviewQuestions).filter(Boolean).length;
+    const notAnsweredCount = Math.max(Object.keys(visitedQuestions).length - answeredCount, 0);
     const fileTypeIcon = (t) => ({ pdf: '📄', ppt: '📊', doc: '📝', video: '🎬' }[t] || '📁');
     const formatBytes = (b) => b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${(b / 1024).toFixed(0)} KB`;
 
@@ -526,85 +595,140 @@ export default function StudentSubjectDetail() {
     // ── Active MCQ Test View ──────────────────────────────────────
     if (activeTest) {
         return (
-            <div style={{ background: '#0a0a0a', minHeight: '100vh', padding: '2rem', color: '#fff' }}>
-                <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative' }}>
-
-                    {/* Proctoring Header */}
-                    <div style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: '12px', padding: '1rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <span style={{ color: '#fb7185', fontWeight: 'bold' }}>🔴 Proctoring Active</span>
-                            <div style={{ fontSize: '0.8rem', color: '#ccc', marginTop: '4px' }}>Camera, microphone, and fullscreen monitoring enabled</div>
-                            {!isExamFullscreen && (
-                                <div style={{ marginTop: '0.5rem' }}>
-                                    <button className="btn btn-danger btn-sm" onClick={requestExamFullscreen}>
-                                        Return to Fullscreen
-                                    </button>
+            <div className="exam-shell">
+                <div className="exam-layout">
+                    <section className="exam-main">
+                        <header className="exam-main-header">
+                            <div>
+                                <h2>{activeTest.title}</h2>
+                                <div className="exam-question-no-row">
+                                    <p>Question {currentQuestionIndex + 1} of {testQuestions.length}</p>
                                 </div>
+                                <div className="exam-header-meta">
+                                    <span className="exam-chip success">Answered: {answeredCount}/{testQuestions.length}</span>
+                                    <span className="exam-chip warning">Review: {reviewCount}</span>
+                                    <span className={`exam-chip ${isExamFullscreen ? 'info' : 'danger'}`}>
+                                        {isExamFullscreen ? 'Fullscreen On' : 'Fullscreen Off'}
+                                    </span>
+                                </div>
+                            </div>
+                            {!isExamFullscreen && (
+                                <button className="btn btn-danger btn-sm" onClick={requestExamFullscreen}>
+                                    Return to Fullscreen
+                                </button>
                             )}
-                        </div>
-                        <div className={`timer ${timeLeft < 60 ? 'animate-pulse' : ''}`} style={{ fontSize: '1.5rem', fontWeight: 900, color: timeLeft < 60 ? '#fb7185' : '#fff' }}>
-                            ⏱ {formatTime(timeLeft)}
-                        </div>
-                    </div>
+                        </header>
 
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 style={{ fontSize: '1.8rem' }}>{activeTest.title}</h2>
-                        <button className="btn btn-primary" onClick={handleSubmitTest} disabled={submittingTest}>
-                            {submittingTest ? <><span className="spinner" /> Submitting…</> : 'Submit Exam'}
-                        </button>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '4rem' }}>
                         {!isExamFullscreen && (
-                            <div className="alert alert-error" style={{ marginBottom: '0.5rem' }}>
-                                Fullscreen is required to answer questions. Click "Return to Fullscreen" to continue.
+                            <div className="exam-warning">
+                                Fullscreen is required to continue answering questions.
                             </div>
                         )}
-                        {testQuestions.map((q, qi) => (
-                            <div key={qi} className="mcq-question-card animate-fade" style={{ background: '#171717', border: '1px solid #333' }}>
-                                <p className="font-bold mb-3" style={{ fontSize: '1.05rem' }}>
-                                    Q{qi + 1}. {q.question_text}
-                                </p>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                                    {q.options.map((opt, oi) => (
-                                        opt && (
-                                            <div key={oi} className={`mcq-option ${myAnswers[qi] === oi ? 'selected' : ''}`}
-                                                style={{ border: myAnswers[qi] === oi ? '1px solid var(--accent)' : '1px solid #444', background: myAnswers[qi] === oi ? 'rgba(99,102,241,0.1)' : 'transparent' }}
-                                                onClick={() => {
-                                                    if (!isExamFullscreen) {
-                                                        toast.error('Return to full screen to answer.');
-                                                        return;
-                                                    }
-                                                    const updated = [...myAnswers];
-                                                    updated[qi] = oi;
-                                                    setMyAnswers(updated);
-                                                }}>
-                                                <div className="mcq-option-letter">{String.fromCharCode(65 + oi)}</div>
-                                                {opt}
-                                            </div>
-                                        )
+
+                        {currentQuestion ? (
+                            <div className="exam-question-card">
+                                <div className="exam-question-title-row">
+                                    <h3>
+                                        Quant - Question {currentQuestionIndex + 1}
+                                    </h3>
+                                    <button type="button" className="exam-btn review" onClick={toggleCurrentQuestionReview}>
+                                        {reviewQuestions[currentQuestionIndex] ? 'Unmark Review' : 'Mark for review'}
+                                    </button>
+                                </div>
+                                <p className="exam-question-text">{currentQuestion.question_text}</p>
+                                <div className="exam-options">
+                                    {(currentQuestion.options || []).map((option, optionIndex) => (
+                                        option ? (
+                                            <button
+                                                key={optionIndex}
+                                                type="button"
+                                                className={`exam-option ${myAnswers[currentQuestionIndex] === optionIndex ? 'selected' : ''}`}
+                                                onClick={() => answerCurrentQuestion(optionIndex)}
+                                            >
+                                                <span className="exam-option-letter">{String.fromCharCode(65 + optionIndex)}.</span>
+                                                <span>{option}</span>
+                                            </button>
+                                        ) : null
                                     ))}
                                 </div>
-                            </div>
-                        ))}
-                    </div>
 
-                    {/* Floating WebCam */}
-                    <div style={{
-                        position: 'fixed',
-                        bottom: '2rem',
-                        right: '2rem',
-                        width: '220px',
-                        height: '150px',
-                        background: '#000',
-                        borderRadius: '12px',
-                        overflow: 'hidden',
-                        border: '2px solid rgba(255,255,255,0.1)',
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.8)'
-                    }}>
-                        <video ref={videoRef} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
-                        <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <div style={{ width: 6, height: 6, background: '#10b981', borderRadius: '50%' }} /> Live
+                                <div className="exam-question-nav">
+                                    <button
+                                        type="button"
+                                        className="exam-btn nav"
+                                        disabled={currentQuestionIndex === 0}
+                                        onClick={() => goToQuestion(currentQuestionIndex - 1)}
+                                    >
+                                        Previous
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="exam-btn nav"
+                                        disabled={currentQuestionIndex === testQuestions.length - 1}
+                                        onClick={() => goToQuestion(currentQuestionIndex + 1)}
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="exam-question-card">
+                                <p className="text-sm text-muted">No questions loaded for this test.</p>
+                            </div>
+                        )}
+
+                        <footer className="exam-footer">
+                            <button type="button" className="exam-btn submit" onClick={confirmAndSubmitTest} disabled={submittingTest}>
+                                {submittingTest ? 'Submitting…' : 'Submit Test'}
+                            </button>
+                        </footer>
+
+                        <div className="exam-legend">
+                            <span><i className="dot current" /> Current</span>
+                            <span><i className="dot not-attempted" /> Not Attempted</span>
+                            <span><i className="dot answered" /> Answered</span>
+                            <span><i className="dot not-answered" /> Not Answered</span>
+                            <span><i className="dot review" /> Review</span>
+                        </div>
+                    </section>
+
+                    <aside className="exam-side">
+                        <div className="exam-timer-card">
+                            <h4>Time Left</h4>
+                            <div className="exam-clock">
+                                <div><strong>{examClock.hours}</strong><span>hours</span></div>
+                                <div><strong>{examClock.minutes}</strong><span>minutes</span></div>
+                                <div><strong>{examClock.seconds}</strong><span>seconds</span></div>
+                            </div>
+                        </div>
+
+                        <div className="exam-stats-card">
+                            <span>Answered: <strong>{answeredCount}/{testQuestions.length}</strong></span>
+                            <span>Not Answered: <strong>{notAnsweredCount}</strong></span>
+                            <span>Review: <strong>{reviewCount}</strong></span>
+                        </div>
+
+                        <div className="exam-palette-card">
+                            <h4>Questions</h4>
+                            <div className="exam-palette-grid">
+                                {testQuestions.map((_, questionIndex) => (
+                                    <button
+                                        key={questionIndex}
+                                        type="button"
+                                        className={`exam-qbtn ${getQuestionStatus(questionIndex)}`}
+                                        onClick={() => goToQuestion(questionIndex)}
+                                    >
+                                        {questionIndex + 1}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </aside>
+
+                    <div className="exam-webcam">
+                        <video ref={videoRef} autoPlay muted playsInline />
+                        <div className="exam-webcam-badge">
+                            <span /> Live
                         </div>
                     </div>
                 </div>

@@ -62,6 +62,38 @@ async def create_assignment(
     return {"message": "Assignment created", "assignment_id": str(result.inserted_id)}
 
 
+# ── Teacher: update assignment ──────────────────────────────────────────────
+@router.put("/{assignment_id}")
+async def update_assignment(
+    subject_id: str,
+    assignment_id: str,
+    body: AssignmentCreate,
+    current_user: dict = Depends(require_teacher_or_admin),
+):
+    assignment = await assignments_collection.find_one({
+        "_id": ObjectId(assignment_id),
+        "subject_id": subject_id,
+    })
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    await assignments_collection.update_one(
+        {"_id": ObjectId(assignment_id)},
+        {
+            "$set": {
+                "title": body.title,
+                "description": body.description,
+                "deadline": body.deadline,
+                "max_marks": body.max_marks,
+                "updated_at": datetime.utcnow().isoformat(),
+                "updated_by": current_user["id"],
+            }
+        },
+    )
+
+    return {"message": "Assignment updated", "assignment_id": assignment_id}
+
+
 # ── List assignments ─────────────────────────────────────────────────────────
 @router.get("/")
 async def list_assignments(subject_id: str, current_user: dict = Depends(require_any)):

@@ -31,6 +31,10 @@ export default function TeacherSubjectDetail() {
     const [assignments, setAssignments] = useState([]);
     const [showAssignForm, setShowAssignForm] = useState(false);
     const [assignForm, setAssignForm] = useState({ title: '', description: '', deadline_date: '', deadline_time: '', max_marks: 10 });
+    const [showEditAssignForm, setShowEditAssignForm] = useState(false);
+    const [editingAssignmentId, setEditingAssignmentId] = useState('');
+    const [savingEditedAssignment, setSavingEditedAssignment] = useState(false);
+    const [editAssignForm, setEditAssignForm] = useState({ title: '', description: '', deadline_date: '', deadline_time: '', max_marks: 10 });
     const [selectedAssignment, setSelectedAssignment] = useState(null);
     const [submissions, setSubmissions] = useState([]);
 
@@ -39,8 +43,14 @@ export default function TeacherSubjectDetail() {
     const [showTestForm, setShowTestForm] = useState(false);
     const [testForm, setTestForm] = useState({ title: '', time_limit_minutes: 30, questions: [] });
     const [newQuestion, setNewQuestion] = useState({ question_text: '', options: ['', '', '', ''], correct_answer: 0 });
+    const [showEditTestForm, setShowEditTestForm] = useState(false);
+    const [editingTestId, setEditingTestId] = useState('');
+    const [savingEditedTest, setSavingEditedTest] = useState(false);
+    const [editTestForm, setEditTestForm] = useState({ title: '', time_limit_minutes: 30, questions: [] });
     const [selectedTest, setSelectedTest] = useState(null);
     const [attempts, setAttempts] = useState([]);
+    const [resettingAttemptId, setResettingAttemptId] = useState('');
+    const [resetAttemptCandidate, setResetAttemptCandidate] = useState(null);
     const [watchVideoUrl, setWatchVideoUrl] = useState(null);
 
     // Members
@@ -225,6 +235,60 @@ export default function TeacherSubjectDetail() {
         } catch { toast.error('Failed to load submissions'); }
     };
 
+    const openEditAssignment = (assignment) => {
+        const parsedDeadline = assignment?.deadline ? new Date(assignment.deadline) : null;
+        const hasValidDate = parsedDeadline && !Number.isNaN(parsedDeadline.getTime());
+        const localDate = hasValidDate
+            ? `${parsedDeadline.getFullYear()}-${String(parsedDeadline.getMonth() + 1).padStart(2, '0')}-${String(parsedDeadline.getDate()).padStart(2, '0')}`
+            : '';
+        const localTime = hasValidDate
+            ? `${String(parsedDeadline.getHours()).padStart(2, '0')}:${String(parsedDeadline.getMinutes()).padStart(2, '0')}`
+            : '';
+
+        setEditingAssignmentId(assignment.id);
+        setEditAssignForm({
+            title: assignment.title || '',
+            description: assignment.description || '',
+            deadline_date: localDate,
+            deadline_time: localTime,
+            max_marks: assignment.max_marks || 10,
+        });
+        setShowEditAssignForm(true);
+    };
+
+    const saveEditedAssignment = async (e) => {
+        e.preventDefault();
+        if (!editingAssignmentId) return;
+
+        if (!editAssignForm.deadline_date || !editAssignForm.deadline_time) {
+            toast.error('Please select both deadline date and time');
+            return;
+        }
+
+        if (!confirm('Save updates to this assignment?')) return;
+
+        const deadline = `${editAssignForm.deadline_date}T${editAssignForm.deadline_time}:00`;
+
+        setSavingEditedAssignment(true);
+        try {
+            await api.put(`/api/subjects/${subjectId}/assignments/${editingAssignmentId}`, {
+                title: editAssignForm.title,
+                description: editAssignForm.description,
+                deadline,
+                max_marks: editAssignForm.max_marks,
+            });
+            toast.success('Assignment updated');
+            setShowEditAssignForm(false);
+            setEditingAssignmentId('');
+            const res = await api.get(`/api/subjects/${subjectId}/assignments/`);
+            setAssignments(res.data);
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Failed to update assignment');
+        } finally {
+            setSavingEditedAssignment(false);
+        }
+    };
+
     const gradeSubmission = async (assignmentId, submissionId, marks, max) => {
         const m = parseInt(prompt(`Marks out of ${max}:`));
         if (isNaN(m) || m < 0 || m > max) { toast.error(`Enter marks between 0 and ${max}`); return; }
@@ -268,6 +332,135 @@ export default function TeacherSubjectDetail() {
             setAttempts(res.data);
             setSelectedTest(testId);
         } catch { toast.error('Failed to load attempts'); }
+    };
+
+    const openEditTest = async (testId) => {
+        try {
+            const res = await api.get(`/api/subjects/${subjectId}/tests/${testId}`);
+            const test = res.data || {};
+            setEditingTestId(testId);
+            setEditTestForm({
+                title: test.title || '',
+                time_limit_minutes: test.time_limit_minutes || 30,
+                questions: Array.isArray(test.questions)
+                    ? test.questions.map((q) => ({
+                        question_text: q.question_text || '',
+                        options: Array.isArray(q.options) ? [...q.options] : ['', '', '', ''],
+                        correct_answer: Number.isInteger(q.correct_answer) ? q.correct_answer : 0,
+                    }))
+                    : [],
+            });
+            setShowEditTestForm(true);
+        } catch {
+            toast.error('Failed to load test for editing');
+        }
+    };
+
+    const updateEditQuestion = (questionIndex, key, value) => {
+        setEditTestForm((prev) => {
+            const questions = [...prev.questions];
+            questions[questionIndex] = { ...questions[questionIndex], [key]: value };
+            return { ...prev, questions };
+        });
+    };
+
+    const updateEditOption = (questionIndex, optionIndex, value) => {
+        setEditTestForm((prev) => {
+            const questions = [...prev.questions];
+            const options = [...(questions[questionIndex]?.options || ['', '', '', ''])];
+            options[optionIndex] = value;
+            questions[questionIndex] = { ...questions[questionIndex], options };
+            return { ...prev, questions };
+        });
+    };
+
+    const removeEditQuestion = (questionIndex) => {
+        setEditTestForm((prev) => ({
+            ...prev,
+            questions: prev.questions.filter((_, idx) => idx !== questionIndex),
+        }));
+    };
+
+    const addEditQuestion = () => {
+        setEditTestForm((prev) => ({
+            ...prev,
+            questions: [
+                ...prev.questions,
+                { question_text: '', options: ['', '', '', ''], correct_answer: 0 },
+            ],
+        }));
+    };
+
+    const saveEditedTest = async (e) => {
+        e.preventDefault();
+        if (!editingTestId) return;
+
+        const normalizedQuestions = editTestForm.questions.map((q) => ({
+            question_text: String(q.question_text || '').trim(),
+            options: Array.isArray(q.options)
+                ? q.options.map((opt) => String(opt || '').trim())
+                : ['', '', '', ''],
+            correct_answer: Number.isInteger(q.correct_answer) ? q.correct_answer : 0,
+        }));
+
+        if (!editTestForm.title.trim()) {
+            toast.error('Test title is required');
+            return;
+        }
+        if (normalizedQuestions.length === 0) {
+            toast.error('Add at least one question');
+            return;
+        }
+
+        const hasInvalid = normalizedQuestions.some((q) => {
+            const validOptions = q.options.filter((opt) => opt.length > 0);
+            return !q.question_text || validOptions.length < 2 || q.correct_answer < 0 || q.correct_answer > 3 || !q.options[q.correct_answer];
+        });
+        if (hasInvalid) {
+            toast.error('Each question needs text, at least 2 options, and a valid correct answer');
+            return;
+        }
+
+        if (!confirm('Save updates to this test and all edited questions?')) return;
+
+        setSavingEditedTest(true);
+        try {
+            await api.put(`/api/subjects/${subjectId}/tests/${editingTestId}`, {
+                title: editTestForm.title.trim(),
+                time_limit_minutes: Number(editTestForm.time_limit_minutes) || 30,
+                questions: normalizedQuestions,
+            });
+            toast.success('Test updated successfully');
+            setShowEditTestForm(false);
+            setEditingTestId('');
+            const res = await api.get(`/api/subjects/${subjectId}/tests/`);
+            setTests(res.data);
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Failed to update test');
+        } finally {
+            setSavingEditedTest(false);
+        }
+    };
+
+    const resetAttempt = (attempt) => {
+        if (!selectedTest) return;
+        setResetAttemptCandidate(attempt);
+    };
+
+    const confirmResetAttempt = async () => {
+        if (!selectedTest || !resetAttemptCandidate) return;
+
+        setResettingAttemptId(resetAttemptCandidate.id);
+        try {
+            await api.delete(`/api/subjects/${subjectId}/tests/${selectedTest}/attempts/${resetAttemptCandidate.id}`);
+            setAttempts((prev) => prev.filter((item) => item.id !== resetAttemptCandidate.id));
+            toast.success('Student attempt reset');
+            setResetAttemptCandidate(null);
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Failed to reset attempt');
+        } finally {
+            setResettingAttemptId('');
+        }
     };
 
     const removeMember = async (studentId, studentName) => {
@@ -510,11 +703,14 @@ export default function TeacherSubjectDetail() {
 
                 {/* ── MATERIALS ──────────────────────────────────────────── */}
                 {activeTab === 'materials' && (
-                    <div className="animate-fade">
+                    <div className="animate-fade materials-panel">
                         {/* Upload form */}
-                        <div className="card mb-4">
-                            <h3 className="mb-3">📤 Upload Material</h3>
-                            <form onSubmit={uploadMaterial} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div className="card mb-4 materials-upload-card">
+                            <div className="materials-upload-header">
+                                <h3 className="mb-1">📤 Upload Material</h3>
+                                <p className="text-sm text-muted">Add notes, slides, documents, or video for your students.</p>
+                            </div>
+                            <form onSubmit={uploadMaterial} className="materials-upload-form">
                                 <div className="form-group">
                                     <label className="form-label">Title</label>
                                     <input className="form-input" placeholder="e.g. Unit 1 Notes" value={uploadTitle}
@@ -522,12 +718,12 @@ export default function TeacherSubjectDetail() {
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">File (PDF, PPT, DOC, Video)</label>
-                                    <input className="form-input" type="file"
+                                    <input className="form-input materials-file-input" type="file"
                                         accept=".pdf,.ppt,.pptx,.doc,.docx,.mp4,.webm,.avi,.mov"
-                                        onChange={e => setUploadFile(e.target.files[0])} required
-                                        style={{ padding: '0.4rem 0.9rem', cursor: 'pointer' }} />
+                                        onChange={e => setUploadFile(e.target.files[0])} required />
+                                    {uploadFile && <span className="text-xs text-muted">Selected: {uploadFile.name}</span>}
                                 </div>
-                                <button type="submit" className="btn btn-teal" disabled={uploading} style={{ alignSelf: 'flex-start' }}>
+                                <button type="submit" className="btn btn-teal materials-upload-btn" disabled={uploading}>
                                     {uploading ? <><span className="spinner" /> Uploading…</> : '📤 Upload'}
                                 </button>
                             </form>
@@ -535,13 +731,13 @@ export default function TeacherSubjectDetail() {
 
                         {/* Material list */}
                         {materials.length === 0 ? (
-                            <div className="empty-state"><div className="empty-icon">📂</div><p>No materials uploaded yet</p></div>
+                            <div className="empty-state card materials-empty-state"><div className="empty-icon">📂</div><p>No materials uploaded yet</p></div>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                            <div className="materials-list">
                                 {materials.map(m => (
-                                    <div key={m.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.2rem' }}>
-                                        <span style={{ fontSize: '1.5rem' }}>{fileTypeIcon(m.content_type)}</span>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div key={m.id} className="card materials-item">
+                                        <span className="materials-item-icon">{fileTypeIcon(m.content_type)}</span>
+                                        <div className="materials-item-body">
                                             <div className="font-bold truncate">{m.title}</div>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <span className={fileTypeBadge(m.content_type)}>{m.content_type?.toUpperCase()}</span>
@@ -549,7 +745,7 @@ export default function TeacherSubjectDetail() {
                                                 <span className="text-xs text-muted">{m.uploaded_at ? new Date(m.uploaded_at).toLocaleDateString() : ''}</span>
                                             </div>
                                         </div>
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-2 materials-item-actions">
                                             <button className="btn btn-outline btn-sm" onClick={() => downloadMaterial(m)}>
                                                 ⬇ Download
                                             </button>
@@ -582,9 +778,14 @@ export default function TeacherSubjectDetail() {
                                             <span>⏰ Due: {a.deadline ? new Date(a.deadline).toLocaleString() : 'No deadline'}</span>
                                             <span>📊 Max: {a.max_marks} marks</span>
                                         </div>
-                                        <button className="btn btn-outline btn-sm" onClick={() => loadSubmissions(a.id)}>
-                                            View Submissions
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button className="btn btn-outline btn-sm" onClick={() => loadSubmissions(a.id)}>
+                                                View Submissions
+                                            </button>
+                                            <button className="btn btn-primary btn-sm" onClick={() => openEditAssignment(a)}>
+                                                Edit
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -655,7 +856,10 @@ export default function TeacherSubjectDetail() {
                                             <span>⏱ {t.time_limit_minutes} min</span>
                                             <span>❓ {t.question_count} questions</span>
                                         </div>
-                                        <button className="btn btn-outline btn-sm" onClick={() => loadAttempts(t.id)}>View Results</button>
+                                        <div className="flex gap-2">
+                                            <button className="btn btn-outline btn-sm" onClick={() => loadAttempts(t.id)}>View Results</button>
+                                            <button className="btn btn-primary btn-sm" onClick={() => openEditTest(t.id)}>Review / Edit</button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -674,7 +878,7 @@ export default function TeacherSubjectDetail() {
                                     <div className="table-wrapper">
                                         <table>
                                             <thead>
-                                                <tr><th>Student</th><th>Score</th><th>Percentage</th><th>Submitted</th><th>Recording</th></tr>
+                                                <tr><th>Student</th><th>Score</th><th>Percentage</th><th>Submitted</th><th>Recording</th><th>Action</th></tr>
                                             </thead>
                                             <tbody>
                                                 {attempts.map((a, i) => (
@@ -701,6 +905,15 @@ export default function TeacherSubjectDetail() {
                                                             ) : (
                                                                 <span className="text-xs text-muted">No recording</span>
                                                             )}
+                                                        </td>
+                                                        <td>
+                                                            <button
+                                                                className="btn btn-danger btn-sm"
+                                                                onClick={() => resetAttempt(a)}
+                                                                disabled={resettingAttemptId === a.id}
+                                                            >
+                                                                {resettingAttemptId === a.id ? 'Resetting…' : 'Reset'}
+                                                            </button>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -899,6 +1112,58 @@ export default function TeacherSubjectDetail() {
                 )
             }
 
+
+            {/* Edit Assignment Modal */}
+            {
+                showEditAssignForm && (
+                    <div className="modal-overlay" onClick={() => setShowEditAssignForm(false)}>
+                        <div className="modal" onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <span className="modal-title">✏️ Edit Assignment</span>
+                                <button className="modal-close" onClick={() => setShowEditAssignForm(false)}>✕</button>
+                            </div>
+                            <form onSubmit={saveEditedAssignment}>
+                                <div className="modal-body">
+                                    <div className="form-group">
+                                        <label className="form-label">Title</label>
+                                        <input className="form-input" value={editAssignForm.title}
+                                            onChange={e => setEditAssignForm({ ...editAssignForm, title: e.target.value })} required />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Description</label>
+                                        <textarea className="form-textarea" value={editAssignForm.description}
+                                            onChange={e => setEditAssignForm({ ...editAssignForm, description: e.target.value })} />
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                        <div className="form-group">
+                                            <label className="form-label">Deadline Date</label>
+                                            <input className="form-input" type="date" value={editAssignForm.deadline_date}
+                                                onChange={e => setEditAssignForm({ ...editAssignForm, deadline_date: e.target.value })} required />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Deadline Time</label>
+                                            <input className="form-input" type="time" value={editAssignForm.deadline_time}
+                                                onChange={e => setEditAssignForm({ ...editAssignForm, deadline_time: e.target.value })} required />
+                                        </div>
+                                    </div>
+                                    <div className="form-group" style={{ maxWidth: '220px' }}>
+                                        <label className="form-label">Max Marks</label>
+                                        <input className="form-input" type="number" min="1" value={editAssignForm.max_marks}
+                                            onChange={e => setEditAssignForm({ ...editAssignForm, max_marks: parseInt(e.target.value || '1') })} />
+                                    </div>
+                                </div>
+                                <div className="modal-footer">
+                                    <button type="button" className="btn btn-outline" onClick={() => setShowEditAssignForm(false)}>Cancel</button>
+                                    <button type="submit" className="btn btn-primary" disabled={savingEditedAssignment}>
+                                        {savingEditedAssignment ? <><span className="spinner" /> Saving…</> : 'Save Changes'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )
+            }
+
             {/* Create MCQ Test Modal */}
             {
                 showTestForm && (
@@ -978,6 +1243,145 @@ export default function TeacherSubjectDetail() {
                     </div>
                 )
             }
+
+            {/* Edit MCQ Test Modal */}
+            {
+                showEditTestForm && (
+                    <div className="modal-overlay" onClick={() => setShowEditTestForm(false)}>
+                        <div className="modal" style={{ maxWidth: '760px' }} onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <span className="modal-title">🛠️ Review / Edit MCQ Test</span>
+                                <button className="modal-close" onClick={() => setShowEditTestForm(false)}>✕</button>
+                            </div>
+                            <form onSubmit={saveEditedTest}>
+                                <div className="modal-body">
+                                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.75rem' }}>
+                                        <div className="form-group">
+                                            <label className="form-label">Test Title</label>
+                                            <input
+                                                className="form-input"
+                                                value={editTestForm.title}
+                                                onChange={e => setEditTestForm({ ...editTestForm, title: e.target.value })}
+                                                required
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Time Limit (min)</label>
+                                            <input
+                                                className="form-input"
+                                                type="number"
+                                                min="1"
+                                                value={editTestForm.time_limit_minutes}
+                                                onChange={e => setEditTestForm({ ...editTestForm, time_limit_minutes: parseInt(e.target.value || '30') })}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {editTestForm.questions.map((q, qIndex) => (
+                                        <div key={qIndex} className="card" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                                            <div className="flex justify-between items-center mb-2">
+                                                <h4>Question {qIndex + 1}</h4>
+                                                <button type="button" className="btn btn-danger btn-sm" onClick={() => removeEditQuestion(qIndex)}>
+                                                    Remove
+                                                </button>
+                                            </div>
+                                            <div className="form-group mb-2">
+                                                <label className="form-label">Question Text</label>
+                                                <input
+                                                    className="form-input"
+                                                    value={q.question_text}
+                                                    onChange={(e) => updateEditQuestion(qIndex, 'question_text', e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                                {(q.options || []).map((option, optionIndex) => (
+                                                    <div key={optionIndex} className="form-group">
+                                                        <label className="form-label">Option {String.fromCharCode(65 + optionIndex)}</label>
+                                                        <input
+                                                            className="form-input"
+                                                            value={option}
+                                                            onChange={(e) => updateEditOption(qIndex, optionIndex, e.target.value)}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">Correct Answer</label>
+                                                <select
+                                                    className="form-select"
+                                                    value={q.correct_answer}
+                                                    onChange={(e) => updateEditQuestion(qIndex, 'correct_answer', parseInt(e.target.value))}
+                                                >
+                                                    {['A', 'B', 'C', 'D'].map((label, index) => (
+
+                                                        <option key={index} value={index}>Option {label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    <button type="button" className="btn btn-teal btn-sm" onClick={addEditQuestion}>+ Add Question</button>
+                                </div>
+                                <div className="modal-footer">
+                                    <button type="button" className="btn btn-outline" onClick={() => setShowEditTestForm(false)}>Cancel</button>
+                                    <button type="submit" className="btn btn-primary" disabled={savingEditedTest}>
+                                        {savingEditedTest ? <><span className="spinner" /> Saving…</> : '💾 Save Changes'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Reset Attempt Confirm Modal */}
+            {
+                resetAttemptCandidate && (
+                    <div className="modal-overlay" onClick={() => resettingAttemptId ? null : setResetAttemptCandidate(null)}>
+                        <div className="modal" style={{ maxWidth: '460px' }} onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <span className="modal-title">⚠️ Confirm Reset</span>
+                                <button
+                                    className="modal-close"
+                                    onClick={() => setResetAttemptCandidate(null)}
+                                    disabled={!!resettingAttemptId}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                            <div className="modal-body">
+                                <p className="text-sm" style={{ lineHeight: 1.6 }}>
+                                    Reset attempt for <strong>{resetAttemptCandidate.student_name}</strong>?
+                                </p>
+                                <p className="text-sm text-muted">
+                                    This will remove the existing score/attempt and the student can retake this test.
+                                </p>
+                            </div>
+                            <div className="modal-footer">
+                                <button
+                                    type="button"
+                                    className="btn btn-outline"
+                                    onClick={() => setResetAttemptCandidate(null)}
+                                    disabled={!!resettingAttemptId}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-danger"
+                                    onClick={confirmResetAttempt}
+                                    disabled={!!resettingAttemptId}
+                                >
+                                    {resettingAttemptId ? 'Resetting…' : 'Yes, Reset'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
             {/* Watch Recording Modal */}
             {
                 watchVideoUrl && (

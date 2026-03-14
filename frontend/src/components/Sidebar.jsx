@@ -63,7 +63,7 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
                             // General Dashboard Links based on Role
                             <>
                                 <button className={`sidebar-link ${location.pathname === dashboardPath ? 'active' : ''}`} onClick={() => navigate(dashboardPath)}>
-                                    <span className="icon">🏠</span> Home Dashboard
+                                    <span className="icon">📚</span> My Subjects
                                 </button>
                                 <button className={`sidebar-link ${location.pathname === notificationsPath ? 'active' : ''}`} onClick={() => navigate(notificationsPath)}>
                                     <span className="icon">🔔</span> Notifications
