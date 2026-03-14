@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 import Sidebar from '../components/Sidebar';
 import toast from 'react-hot-toast';
-import { getAvatarFallback } from '../utils/avatar';
+import { getAvatarFallback, getUserPicture, resolveAvatarUrl } from '../utils/avatar';
 
 export default function TeacherSubjectDetail() {
     const { subjectId } = useParams();
@@ -52,15 +52,23 @@ export default function TeacherSubjectDetail() {
     const [chatMsg, setChatMsg] = useState('');
     const [sendingMsg, setSendingMsg] = useState(false);
     const [showQrPreview, setShowQrPreview] = useState(false);
+    const [avatarErrors, setAvatarErrors] = useState({});
     const chatEndRef = useRef(null);
     const chatPollRef = useRef(null);
     const chatLastSentAtRef = useRef(null);
 
     useEffect(() => {
         setMessages([]);
+        setAvatarErrors({});
         chatLastSentAtRef.current = null;
         loadAll();
     }, [subjectId]);
+
+    const getPictureUrl = (pictureValue) => resolveAvatarUrl(getUserPicture({ picture: pictureValue }));
+    const hasAvatar = (key, pictureUrl) => Boolean(pictureUrl) && !avatarErrors[key];
+    const handleAvatarError = (key) => {
+        setAvatarErrors((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+    };
 
     useEffect(() => {
         const nextTab = new URLSearchParams(location.search).get('tab');
@@ -707,8 +715,13 @@ export default function TeacherSubjectDetail() {
                                                 <td className="text-muted text-sm">{i + 1}</td>
                                                 <td>
                                                     <div className="flex items-center gap-2">
-                                                        {m.student_picture ? (
-                                                            <img src={m.student_picture} alt={m.student_name} className="avatar avatar-sm" />
+                                                        {hasAvatar(`member-${m.student_id}`, getPictureUrl(m.student_picture)) ? (
+                                                            <img
+                                                                src={getPictureUrl(m.student_picture)}
+                                                                alt={m.student_name}
+                                                                className="avatar avatar-sm"
+                                                                onError={() => handleAvatarError(`member-${m.student_id}`)}
+                                                            />
                                                         ) : (
                                                             <div
                                                                 className="avatar avatar-sm avatar-placeholder"
@@ -763,12 +776,20 @@ export default function TeacherSubjectDetail() {
 
                                     const m = item.payload;
                                     const isMe = m.sender_id === user?.id;
+                                    const senderAvatarUrl = getPictureUrl(m.sender_picture);
+                                    const senderAvatarKey = `chat-${m.id}-${m.sender_id}`;
                                     return (
                                         <div key={m.id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '50%' }}>
                                             {!isMe && (
                                                 <div className="flex items-center gap-1 mb-1">
-                                                    {m.sender_picture ? (
-                                                        <img src={m.sender_picture} className="avatar-sm" style={{ borderRadius: '50%', width: 18, height: 18 }} />
+                                                    {hasAvatar(senderAvatarKey, senderAvatarUrl) ? (
+                                                        <img
+                                                            src={senderAvatarUrl}
+                                                            alt={m.sender_name}
+                                                            className="avatar-sm"
+                                                            style={{ borderRadius: '50%', width: 18, height: 18 }}
+                                                            onError={() => handleAvatarError(senderAvatarKey)}
+                                                        />
                                                     ) : (
                                                         <div
                                                             className="avatar avatar-sm avatar-placeholder"

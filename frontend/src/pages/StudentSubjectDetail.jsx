@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import api from '../api/client';
 import toast from 'react-hot-toast';
+import { getAvatarFallback, getUserPicture, resolveAvatarUrl } from '../utils/avatar';
 
 export default function StudentSubjectDetail() {
     const { subjectId } = useParams();
@@ -47,6 +48,7 @@ export default function StudentSubjectDetail() {
     const [chatMsg, setChatMsg] = useState('');
     const [sendingMsg, setSendingMsg] = useState(false);
     const [showQrPreview, setShowQrPreview] = useState(false);
+    const [avatarErrors, setAvatarErrors] = useState({});
     const chatEndRef = useRef(null);
     const chatPollRef = useRef(null);
     const chatLastSentAtRef = useRef(null);
@@ -88,9 +90,16 @@ export default function StudentSubjectDetail() {
 
     useEffect(() => {
         setMessages([]);
+        setAvatarErrors({});
         chatLastSentAtRef.current = null;
         loadAll();
     }, [subjectId]);
+
+    const getPictureUrl = (pictureValue) => resolveAvatarUrl(getUserPicture({ picture: pictureValue }));
+    const hasAvatar = (key, pictureUrl) => Boolean(pictureUrl) && !avatarErrors[key];
+    const handleAvatarError = (key) => {
+        setAvatarErrors((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+    };
 
     useEffect(() => {
         if (activeTab === 'chat') {
@@ -637,10 +646,26 @@ export default function StudentSubjectDetail() {
                                         />
                                     </button>
                                 )}
-                                {subject.teacher_picture ? (
-                                    <img src={subject.teacher_picture} alt={subject.teacher_name} className="avatar avatar-sm" style={{ width: 28, height: 28 }} />
+                                {hasAvatar('subject-teacher', getPictureUrl(subject.teacher_picture)) ? (
+                                    <img
+                                        src={getPictureUrl(subject.teacher_picture)}
+                                        alt={subject.teacher_name}
+                                        className="avatar avatar-sm"
+                                        style={{ width: 28, height: 28 }}
+                                        onError={() => handleAvatarError('subject-teacher')}
+                                    />
                                 ) : (
-                                    <div className="avatar avatar-sm avatar-placeholder" style={{ width: 28, height: 28, fontSize: '0.8rem' }}>{subject.teacher_name?.[0]}</div>
+                                    <div
+                                        className="avatar avatar-sm avatar-placeholder"
+                                        style={{
+                                            width: 28,
+                                            height: 28,
+                                            fontSize: '0.8rem',
+                                            background: getAvatarFallback(subject.teacher_name).background,
+                                        }}
+                                    >
+                                        {getAvatarFallback(subject.teacher_name).initial}
+                                    </div>
                                 )}
                                 <span className="text-sm text-muted"><strong>{subject.teacher_name}</strong></span>
                             </div>
@@ -927,11 +952,32 @@ export default function StudentSubjectDetail() {
 
                                     const m = item.payload;
                                     const isMe = m.sender_id === user?.id;
+                                    const senderAvatarUrl = getPictureUrl(m.sender_picture);
+                                    const senderAvatarKey = `chat-${m.id}-${m.sender_id}`;
                                     return (
                                         <div key={m.id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '50%' }}>
                                             {!isMe && (
                                                 <div className="flex items-center gap-1 mb-1">
-                                                    {m.sender_picture ? <img src={m.sender_picture} style={{ borderRadius: '50%', width: 18, height: 18 }} /> : null}
+                                                    {hasAvatar(senderAvatarKey, senderAvatarUrl) ? (
+                                                        <img
+                                                            src={senderAvatarUrl}
+                                                            alt={m.sender_name}
+                                                            style={{ borderRadius: '50%', width: 18, height: 18 }}
+                                                            onError={() => handleAvatarError(senderAvatarKey)}
+                                                        />
+                                                    ) : (
+                                                        <div
+                                                            className="avatar avatar-sm avatar-placeholder"
+                                                            style={{
+                                                                width: 18,
+                                                                height: 18,
+                                                                fontSize: '0.55rem',
+                                                                background: getAvatarFallback(m.sender_name).background,
+                                                            }}
+                                                        >
+                                                            {getAvatarFallback(m.sender_name).initial}
+                                                        </div>
+                                                    )}
                                                     <span className="text-xs text-muted">{m.sender_name}</span>
                                                     <span className={`badge badge-${m.sender_role}`} style={{ fontSize: '0.6rem' }}>
                                                         {m.sender_role === 'teacher' ? 'FACULTY' : String(m.sender_role || '').toUpperCase()}

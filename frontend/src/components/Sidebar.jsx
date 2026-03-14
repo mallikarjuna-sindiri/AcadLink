@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getAvatarFallback } from '../utils/avatar';
+import { getAvatarFallback, getUserPicture, resolveAvatarUrl } from '../utils/avatar';
 import LogoutConfirmModal from './LogoutConfirmModal';
 import ThemeToggle from './ThemeToggle';
 
@@ -13,13 +13,14 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [avatarLoadError, setAvatarLoadError] = useState(false);
     const avatarFallback = getAvatarFallback(user?.name || '');
+    const avatarUrl = resolveAvatarUrl(getUserPicture(user));
 
-    const hasValidAvatar = Boolean(user?.picture) && !avatarLoadError;
+    const hasValidAvatar = Boolean(avatarUrl) && !avatarLoadError;
     const notificationsPath = user ? `/${user.role}/notifications` : '/';
 
     useEffect(() => {
         setAvatarLoadError(false);
-    }, [user?.picture]);
+    }, [avatarUrl]);
 
     const handleLogout = () => {
         setShowLogoutConfirm(false);
@@ -114,7 +115,7 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
                         <div className="user-profile mb-3">
                             {hasValidAvatar ? (
                                 <img
-                                    src={user.picture}
+                                    src={avatarUrl}
                                     alt={user.name}
                                     className="avatar"
                                     style={{ width: 36, height: 36, borderRadius: '50%' }}
