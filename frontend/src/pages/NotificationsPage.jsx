@@ -69,6 +69,7 @@ export default function NotificationsPage() {
     const iconForType = (type) => {
         const map = {
             subject: '📚',
+            subject_deleted: '🗑️',
             join: '✅',
             material: '📄',
             assignment: '📝',
@@ -81,6 +82,7 @@ export default function NotificationsPage() {
     const labelForType = (type) => {
         const map = {
             subject: 'Subject',
+            subject_deleted: 'Deleted',
             join: 'Joined',
             material: 'Material',
             assignment: 'Assignment',
@@ -117,7 +119,7 @@ export default function NotificationsPage() {
             chat: 'chat',
             join: 'members',
         };
-        return map[type] || 'materials';
+        return map[type] || null;
     };
 
     const getNotificationTarget = (notification) => {
@@ -127,6 +129,7 @@ export default function NotificationsPage() {
         if (role !== 'student' && role !== 'teacher') return null;
 
         const tab = tabForType(notification?.type);
+        if (!tab) return null;
         const teacherTab = tab === 'performance' ? 'materials' : tab;
         const studentTab = tab === 'members' ? 'materials' : tab;
 

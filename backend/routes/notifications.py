@@ -215,10 +215,14 @@ async def get_notifications(
             if subject_ids:
                 await user_notifications_collection.delete_many({
                     "user_id": viewer_id,
+                    "type": {"$ne": "subject_deleted"},
                     "subject_id": {"$nin": subject_ids},
                 })
             else:
-                await user_notifications_collection.delete_many({"user_id": viewer_id})
+                await user_notifications_collection.delete_many({
+                    "user_id": viewer_id,
+                    "type": {"$ne": "subject_deleted"},
+                })
 
         read_query = {"user_id": viewer_id}
         if since:

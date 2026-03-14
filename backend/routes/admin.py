@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from models.user import TeacherCreate
 from utils.dependencies import require_admin
 from config import (
+    db,
     users_collection,
     subjects_collection,
     subject_members_collection,
@@ -16,6 +17,7 @@ from bson import ObjectId
 from datetime import datetime
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
+user_notifications_collection = db["user_notifications"]
 
 
 def serialize_user(u: dict) -> dict:
@@ -154,6 +156,32 @@ async def delete_subject(subject_id: str, current_user: dict = Depends(require_a
     subject = await subjects_collection.find_one({"_id": obj_id})
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
+
+    members = await subject_members_collection.find({"subject_id": subject_id}, {"student_id": 1}).to_list(None)
+    recipient_ids = {m.get("student_id") for m in members if m.get("student_id")}
+    teacher_id = subject.get("teacher_id")
+    if teacher_id:
+        recipient_ids.add(teacher_id)
+
+    subject_name = subject.get("name", "Subject")
+    deleted_at = datetime.utcnow().isoformat()
+
+    if recipient_ids:
+        docs = []
+        for user_id in recipient_ids:
+            event_id = f"subject_deleted_{subject_id}_{deleted_at}"
+            docs.append({
+                "_id": f"{user_id}::{event_id}",
+                "user_id": user_id,
+                "id": event_id,
+                "type": "subject_deleted",
+                "subject_id": subject_id,
+                "subject_name": subject_name,
+                "title": "Subject deleted",
+                "message": f"{subject_name} was deleted by admin",
+                "created_at": deleted_at,
+            })
+        await user_notifications_collection.insert_many(docs, ordered=False)
 
     assignment_ids = [str(a["_id"]) for a in await assignments_collection.find({"subject_id": subject_id}).to_list(None)]
     test_ids = [str(t["_id"]) for t in await mcq_tests_collection.find({"subject_id": subject_id}).to_list(None)]
