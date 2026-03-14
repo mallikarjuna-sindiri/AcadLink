@@ -766,6 +766,11 @@ tbody tr:hover {
   border-radius: var(--radius);
   font-size: 0.875rem;
   line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: none;
+  -webkit-hyphens: none;
 }
 
 .chat-bubble.mine {

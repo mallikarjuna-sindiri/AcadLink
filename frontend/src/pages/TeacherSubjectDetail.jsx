@@ -371,6 +371,25 @@ export default function TeacherSubjectDetail() {
         return `${getOrdinalDay(date.getDate())} ${month}, ${date.getFullYear()}`;
     };
 
+    const splitLongTokenWithHyphens = (token, chunkSize = 22) => {
+        if (!token || token.length <= chunkSize) return token;
+
+        const chunks = [];
+        for (let start = 0; start < token.length; start += chunkSize) {
+            chunks.push(token.slice(start, start + chunkSize));
+        }
+
+        return chunks.join('-\n-');
+    };
+
+    const formatChatMessage = (text = '') => {
+        if (!text) return '';
+        return text
+            .split(/(\s+)/)
+            .map((part) => (/^\s+$/.test(part) ? part : splitLongTokenWithHyphens(part)))
+            .join('');
+    };
+
     const buildChatTimeline = (items) => {
         const timeline = [];
         let lastDateKey = '';
@@ -810,7 +829,7 @@ export default function TeacherSubjectDetail() {
                                                 </div>
                                             )}
                                             <div className={`chat-bubble ${isMe ? 'mine' : 'other'}`}>
-                                                {m.message}
+                                                {formatChatMessage(m.message)}
                                                 <div className="chat-meta">{parseChatDate(m.sent_at).toLocaleTimeString()}</div>
                                             </div>
                                         </div>
