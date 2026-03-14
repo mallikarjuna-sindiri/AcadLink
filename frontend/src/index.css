@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
-/* ── Design Tokens ─────────────────────────────────────────── */
+/* ── Design Tokens (Dark – default) ────────────────────────── */
 :root {
   --bg-base: #070b14;
   --bg-card: #0f1623;
@@ -34,13 +34,58 @@
   --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
 }
 
-/* ── Reset ──────────────────────────────────────────────────── */
+/* ── Design Tokens (Light) ──────────────────────────────────── */
+[data-theme="light"] {
+  --bg-base: #f0f4ff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #eef2ff;
+  --bg-glass: rgba(255, 255, 255, 0.88);
+  --border: rgba(99, 102, 241, 0.15);
+  --border-bright: rgba(99, 102, 241, 0.4);
+
+  --accent: #6366f1;
+  --accent-light: #4f46e5;
+  --accent-dark: #4338ca;
+  --accent-glow: rgba(99, 102, 241, 0.18);
+
+  --teal: #0d9488;
+  --teal-glow: rgba(13, 148, 136, 0.15);
+  --purple: #9333ea;
+  --rose: #e11d48;
+  --amber: #d97706;
+  --green: #059669;
+
+  --text-primary: #0f1623;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+
+  --shadow-card: 0 4px 24px rgba(99, 102, 241, 0.08), 0 1px 4px rgba(0, 0, 0, 0.06);
+  --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.12);
+}
+
+/* ── Theme Transition ───────────────────────────────────────── */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+/* Exclude transitions that shouldn't animate with theme changes */
+*:where(button, a, input, select, textarea) {
+  transition:
+    background-color 0.3s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
 html {
@@ -234,8 +279,8 @@ a:hover {
 .btn-dev {
   width: 100%;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(var(--dev-color, 99, 102, 241), 0.25);
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border);
   color: var(--text-primary);
   transition: all 0.2s;
   padding: 0.65rem 1.2rem;
@@ -250,9 +295,9 @@ a:hover {
 }
 
 .btn-dev:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-card);
 }
 
 .btn-dev:disabled {
@@ -591,7 +636,7 @@ td {
 }
 
 tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-card-hover);
 }
 
 /* ── Modal ──────────────────────────────────────────────────── */
@@ -1004,14 +1049,14 @@ tbody tr:hover {
 }
 
 .sidebar-link:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-card-hover);
   color: var(--text-primary);
 }
 
 .sidebar-link.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05));
-  color: var(--accent-light);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: linear-gradient(135deg, var(--accent-glow), rgba(99, 102, 241, 0.05));
+  color: var(--accent);
+  border: 1px solid var(--border-bright);
 }
 
 .sidebar-link .icon {
@@ -1391,13 +1436,13 @@ tbody tr:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.85rem 0.95rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-card);
   transition: border-color 0.2s, transform 0.2s, background 0.2s;
 }
 
 .notification-item:hover {
   border-color: var(--border-bright);
-  background: rgba(99, 102, 241, 0.06);
+  background: var(--bg-card-hover);
   transform: translateY(-1px);
 }
 

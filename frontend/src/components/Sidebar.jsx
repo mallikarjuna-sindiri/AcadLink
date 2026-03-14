@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAvatarFallback } from '../utils/avatar';
 import LogoutConfirmModal from './LogoutConfirmModal';
+import ThemeToggle from './ThemeToggle';
 
 export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }) {
     const { user, logout } = useAuth();
@@ -132,6 +133,7 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
                             </div>
                         </div>
                     )}
+                    <ThemeToggle />
                     <button className="btn btn-outline" style={{ width: '100%', borderColor: 'rgba(244,63,94,0.3)', color: '#fb7185' }} onClick={() => setShowLogoutConfirm(true)}>
                         Log Out
                     </button>

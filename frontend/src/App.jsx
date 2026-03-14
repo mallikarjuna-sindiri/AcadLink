@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import AdminDashboard from './pages/AdminDashboard';
@@ -24,20 +25,19 @@ function Unauthorized() {
   );
 }
 
-export default function App() {
+function AppRoutes() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const toastStyle = isDark
+    ? { background: '#0f1623', color: '#f0f4ff', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '10px' }
+    : { background: '#ffffff', color: '#0f1623', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '10px', boxShadow: '0 4px 20px rgba(99,102,241,0.1)' };
+
   return (
     <AuthProvider>
       <BrowserRouter>
         <Toaster
           position="top-right"
-          toastOptions={{
-            style: {
-              background: '#0f1623',
-              color: '#f0f4ff',
-              border: '1px solid rgba(99,102,241,0.25)',
-              borderRadius: '10px',
-            },
-          }}
+          toastOptions={{ style: toastStyle }}
         />
         <Routes>
           {/* Public */}
@@ -95,5 +95,13 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppRoutes />
+    </ThemeProvider>
   );
 }
