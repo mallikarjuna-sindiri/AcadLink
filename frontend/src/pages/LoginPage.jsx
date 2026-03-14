@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
@@ -8,8 +8,36 @@ import toast from 'react-hot-toast';
 // Safe Google Login — catches crash if origin not registered
 function SafeGoogleLogin({ onSuccess, onError }) {
     const [failed, setFailed] = useState(false);
+    const containerRef = useRef(null);
 
     useEffect(() => {
+        let resizeTimer;
+        const renderResponsiveGoogleButton = () => {
+            try {
+                if (!window.google || !containerRef.current) return;
+
+                const containerWidth = Math.floor(containerRef.current.getBoundingClientRect().width || 0);
+                const width = Math.max(200, Math.min(380, containerWidth));
+                containerRef.current.innerHTML = '';
+
+                window.google.accounts.id.renderButton(containerRef.current, {
+                    theme: 'filled_black',
+                    size: 'large',
+                    width,
+                });
+            } catch {
+                setFailed(true);
+                onError();
+            }
+        };
+
+        const handleResize = () => {
+            window.clearTimeout(resizeTimer);
+            resizeTimer = window.setTimeout(() => {
+                renderResponsiveGoogleButton();
+            }, 120);
+        };
+
         // Try to load google identity services but catch failures
         const timer = setTimeout(() => {
             try {
@@ -22,10 +50,9 @@ function SafeGoogleLogin({ onSuccess, onError }) {
                             }
                         },
                     });
-                    window.google.accounts.id.renderButton(
-                        document.getElementById('google-btn-container'),
-                        { theme: 'filled_black', size: 'large', width: 280 }
-                    );
+
+                    renderResponsiveGoogleButton();
+                    window.addEventListener('resize', handleResize);
                 } else {
                     setFailed(true);
                 }
@@ -34,7 +61,11 @@ function SafeGoogleLogin({ onSuccess, onError }) {
                 onError();
             }
         }, 800);
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            window.clearTimeout(resizeTimer);
+            window.removeEventListener('resize', handleResize);
+        };
     }, []);
 
     if (failed) {
@@ -54,7 +85,11 @@ function SafeGoogleLogin({ onSuccess, onError }) {
         );
     }
 
-    return <div id="google-btn-container" style={{ display: 'flex', justifyContent: 'center', minHeight: 44 }} />;
+    return (
+        <div style={{ width: '100%', maxWidth: 380, margin: '0 auto' }}>
+            <div ref={containerRef} id="google-btn-container" style={{ width: '100%', minHeight: 44 }} />
+        </div>
+    );
 }
 
 export default function LoginPage() {
