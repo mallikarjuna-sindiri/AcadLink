@@ -43,6 +43,7 @@ export default function StudentSubjectDetail() {
     const [timeLeft, setTimeLeft] = useState(0);
     const timerRef = useRef(null);
     const [submittingTest, setSubmittingTest] = useState(false);
+    const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
     const [testResult, setTestResult] = useState(null);
     const [isExamFullscreen, setIsExamFullscreen] = useState(false);
 
@@ -80,7 +81,9 @@ export default function StudentSubjectDetail() {
         navigate(location.pathname, { replace: true });
     }, [location.search, location.pathname]);
     const answersRef = useRef([]);
+    const submittingTestRef = useRef(false);
     useEffect(() => { answersRef.current = myAnswers; }, [myAnswers]);
+    useEffect(() => { submittingTestRef.current = submittingTest; }, [submittingTest]);
 
     const requestExamFullscreen = async () => {
         try {
@@ -328,47 +331,55 @@ export default function StudentSubjectDetail() {
     };
 
     const handleSubmitTest = async () => {
-        if (!activeTestRef.current) return;
+        if (!activeTestRef.current || submittingTestRef.current) return;
         const testIdToSubmit = activeTestRef.current.id;
-        const answersToSubmit = answersRef.current.map(a => a === -1 ? 0 : a);
+        const answersToSubmit = [...answersRef.current];
 
         setSubmittingTest(true);
+        submittingTestRef.current = true;
         clearTimeout(timerRef.current);
 
         const uploadData = async (videoBlob) => {
+            let submitResponse;
             try {
-                const res = await api.post(`/api/subjects/${subjectId}/tests/${testIdToSubmit}/attempt`, {
+                submitResponse = await api.post(`/api/subjects/${subjectId}/tests/${testIdToSubmit}/attempt`, {
                     answers: answersToSubmit
                 });
-
-                const attemptId = res.data.attempt_id;
-
-                setTestResult(res.data);
-                setMyAttempts(prev => ({ ...prev, [testIdToSubmit]: { attempted: true, ...res.data } }));
-                toast.success(`Exam submitted securely! Score: ${res.data.score}/${res.data.total}`);
-
-                // Immediately clean up UI and streams so student isn't blocked
-                if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-                if (screenStreamRef.current) screenStreamRef.current.getTracks().forEach(t => t.stop());
-                if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
-
-                setActiveTest(null);
-                setIsExamFullscreen(false);
-                setSubmittingTest(false);
-
-                // Background upload screen share recording
-                if (videoBlob && attemptId) {
-                    toast.loading('Uploading screen recording...', { id: 'vid-upload' });
-                    const fd = new FormData();
-                    fd.append('file', videoBlob, 'recording.webm');
-                    await api.post(`/api/subjects/${subjectId}/tests/${testIdToSubmit}/attempts/${attemptId}/recording`, fd);
-                    toast.success('Exam recording uploaded successfully!', { id: 'vid-upload' });
-                }
             } catch (err) {
                 toast.error(err.response?.data?.detail || 'Submission failed');
                 setActiveTest(null);
                 setIsExamFullscreen(false);
                 setSubmittingTest(false);
+                submittingTestRef.current = false;
+                return;
+            }
+
+            const attemptId = submitResponse?.data?.attempt_id;
+
+            setTestResult(submitResponse.data);
+            setMyAttempts(prev => ({ ...prev, [testIdToSubmit]: { attempted: true, ...submitResponse.data } }));
+            toast.success(`Exam submitted securely! Score: ${submitResponse.data.score}/${submitResponse.data.total}`);
+
+            if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+            if (screenStreamRef.current) screenStreamRef.current.getTracks().forEach(t => t.stop());
+            if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
+
+            setActiveTest(null);
+            setIsExamFullscreen(false);
+            setShowSubmitConfirm(false);
+            setSubmittingTest(false);
+            submittingTestRef.current = false;
+
+            if (videoBlob && attemptId) {
+                try {
+                    toast.loading('Uploading screen recording...', { id: 'vid-upload' });
+                    const fd = new FormData();
+                    fd.append('file', videoBlob, 'recording.webm');
+                    await api.post(`/api/subjects/${subjectId}/tests/${testIdToSubmit}/attempts/${attemptId}/recording`, fd);
+                    toast.success('Exam recording uploaded successfully!', { id: 'vid-upload' });
+                } catch {
+                    toast.error('Exam submitted, but screen recording upload failed.', { id: 'vid-upload' });
+                }
             }
         };
 
@@ -385,13 +396,12 @@ export default function StudentSubjectDetail() {
 
     const confirmAndSubmitTest = async () => {
         if (submittingTest) return;
+        setShowSubmitConfirm(true);
+    };
 
-        const unanswered = myAnswers.filter((answer) => answer === -1).length;
-        const confirmText = unanswered > 0
-            ? `You still have ${unanswered} unanswered question(s). Submit anyway?`
-            : 'Are you sure you want to submit the test?';
-
-        if (!confirm(confirmText)) return;
+    const submitTestFromModal = async () => {
+        if (submittingTest) return;
+        setShowSubmitConfirm(false);
         await handleSubmitTest();
     };
 
@@ -594,6 +604,7 @@ export default function StudentSubjectDetail() {
 
     // ── Active MCQ Test View ──────────────────────────────────────
     if (activeTest) {
+        const unansweredCount = myAnswers.filter((answer) => answer === -1).length;
         return (
             <div className="exam-shell">
                 <div className="exam-layout">
@@ -731,6 +742,49 @@ export default function StudentSubjectDetail() {
                             <span /> Live
                         </div>
                     </div>
+
+                    {showSubmitConfirm && (
+                        <div className="modal-overlay" onClick={() => !submittingTest && setShowSubmitConfirm(false)}>
+                            <div className="modal" style={{ maxWidth: '460px' }} onClick={(e) => e.stopPropagation()}>
+                                <div className="modal-header">
+                                    <span className="modal-title">Confirm Test Submission</span>
+                                    <button
+                                        className="modal-close"
+                                        onClick={() => setShowSubmitConfirm(false)}
+                                        disabled={submittingTest}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                                <p className="text-sm mb-2">Are you sure you want to submit your test now?</p>
+                                {unansweredCount > 0 ? (
+                                    <p className="text-sm text-muted mb-3">
+                                        You still have <strong>{unansweredCount}</strong> unanswered question(s).
+                                    </p>
+                                ) : (
+                                    <p className="text-sm text-muted mb-3">All questions are answered.</p>
+                                )}
+                                <div className="flex gap-2 justify-end">
+                                    <button
+                                        type="button"
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={() => setShowSubmitConfirm(false)}
+                                        disabled={submittingTest}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary btn-sm"
+                                        onClick={submitTestFromModal}
+                                        disabled={submittingTest}
+                                    >
+                                        {submittingTest ? 'Submitting…' : 'Yes, Submit'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         );

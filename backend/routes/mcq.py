@@ -142,10 +142,21 @@ async def submit_attempt(
             detail=f"Expected {len(questions)} answers, got {len(body.answers)}",
         )
 
+    for i, answer in enumerate(body.answers):
+        if answer == -1:
+            continue
+        options = questions[i].get("options", [])
+        if answer < 0 or answer >= len(options):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid answer index for question {i + 1}",
+            )
+
     # Auto-score
     score = 0
     for i, q in enumerate(questions):
-        if body.answers[i] == q.get("correct_answer"):
+        selected = body.answers[i]
+        if selected != -1 and selected == q.get("correct_answer"):
             score += 1
 
     attempt = {
