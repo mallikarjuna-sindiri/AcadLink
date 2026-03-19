@@ -391,7 +391,23 @@ export default function StudentDashboard() {
                             <div className="animate-fade">
                                 <div className="flex items-center justify-between" style={{ marginBottom: '0.75rem' }}>
                                     <h2 className="page-title" style={{ fontSize: '1.2rem', margin: 0 }}>Pending Tests</h2>
-                                    <span className="text-sm text-muted">{pendingCount}</span>
+                                    <span
+                                        className="text-sm"
+                                        style={{
+                                            minWidth: '2rem',
+                                            height: '2rem',
+                                            borderRadius: '999px',
+                                            border: '1px solid var(--border-color)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontWeight: 700,
+                                            color: 'var(--text-primary)',
+                                            background: 'rgba(99,102,241,0.12)',
+                                        }}
+                                    >
+                                        {pendingCount}
+                                    </span>
                                 </div>
 
                                 {pendingTestsList.length === 0 ? (
@@ -441,7 +457,23 @@ export default function StudentDashboard() {
 
                                 <div className="flex items-center justify-between" style={{ marginBottom: '0.75rem' }}>
                                     <h2 className="page-title" style={{ fontSize: '1.2rem', margin: 0 }}>Attempted Tests</h2>
-                                    <span className="text-sm text-muted">{attemptedCount}</span>
+                                    <span
+                                        className="text-sm"
+                                        style={{
+                                            minWidth: '2rem',
+                                            height: '2rem',
+                                            borderRadius: '999px',
+                                            border: '1px solid var(--border-color)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontWeight: 700,
+                                            color: 'var(--text-primary)',
+                                            background: 'rgba(16,185,129,0.14)',
+                                        }}
+                                    >
+                                        {attemptedCount}
+                                    </span>
                                 </div>
 
                                 {attemptedTestsList.length === 0 ? (
@@ -484,7 +516,23 @@ export default function StudentDashboard() {
 
                                 <div className="flex items-center justify-between" style={{ marginBottom: '0.75rem' }}>
                                     <h2 className="page-title" style={{ fontSize: '1.2rem', margin: 0 }}>Not Attempted Tests</h2>
-                                    <span className="text-sm text-muted">{deadlineDoneCount}</span>
+                                    <span
+                                        className="text-sm"
+                                        style={{
+                                            minWidth: '2rem',
+                                            height: '2rem',
+                                            borderRadius: '999px',
+                                            border: '1px solid var(--border-color)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontWeight: 700,
+                                            color: 'var(--text-primary)',
+                                            background: 'rgba(244,63,94,0.12)',
+                                        }}
+                                    >
+                                        {deadlineDoneCount}
+                                    </span>
                                 </div>
 
                                 {deadlineDoneTestsList.length === 0 ? (
