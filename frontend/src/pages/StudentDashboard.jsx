@@ -18,9 +18,23 @@ export default function StudentDashboard() {
     const [fetching, setFetching] = useState(true);
     const [showJoin, setShowJoin] = useState(false);
     const [viewportWidth, setViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
+    const [graphSubjectFilter, setGraphSubjectFilter] = useState('all');
+
+    const graphSubjectOptions = useMemo(() => {
+        const options = subjects.map((subject) => ({
+            id: subject.id,
+            label: `${subject.name}`,
+        }));
+        return [{ id: 'all', label: 'All Subjects' }, ...options];
+    }, [subjects]);
+
+    const graphSourceTests = useMemo(() => {
+        if (graphSubjectFilter === 'all') return myTests;
+        return myTests.filter((test) => test.subject_id === graphSubjectFilter);
+    }, [myTests, graphSubjectFilter]);
 
     const marksAnalysis = useMemo(() => {
-        const attempts = myTests
+        const attempts = graphSourceTests
             .filter(test => test.my_attempt?.attempted)
             .map(test => {
                 const submittedAt = test.my_attempt?.submitted_at;
@@ -44,7 +58,7 @@ export default function StudentDashboard() {
             .filter(item => item.date)
             .sort((a, b) => a.date - b.date);
 
-        const totalTests = myTests.length;
+        const totalTests = graphSourceTests.length;
         const attemptedTests = attempts.length;
         const averageMarks = attemptedTests
             ? Math.round(attempts.reduce((sum, item) => sum + item.marks, 0) / attemptedTests)
@@ -62,7 +76,7 @@ export default function StudentDashboard() {
             bestMarks,
             lowestMarks,
         };
-    }, [myTests]);
+    }, [graphSourceTests]);
 
     const attemptedTestsList = useMemo(
         () => myTests.filter((test) => test.my_attempt?.attempted),
@@ -214,6 +228,14 @@ export default function StudentDashboard() {
         window.addEventListener('resize', onResize);
         return () => window.removeEventListener('resize', onResize);
     }, []);
+
+    useEffect(() => {
+        if (graphSubjectFilter === 'all') return;
+        const exists = graphSubjectOptions.some((option) => option.id === graphSubjectFilter);
+        if (!exists) {
+            setGraphSubjectFilter('all');
+        }
+    }, [graphSubjectFilter, graphSubjectOptions]);
 
     const loadSubjects = async () => {
         setFetching(true);
@@ -423,13 +445,11 @@ export default function StudentDashboard() {
                                                     style={{ width: `${testRowCardWidth}px`, flex: '0 0 auto' }}
                                                 >
                                                     <div className="flex justify-between items-center mb-2">
-                                                        <span className="subject-code">{test.subject_code}</span>
+                                                        <span className="subject-code">{test.subject_name}</span>
                                                         <span className="text-xs text-muted">{test.time_limit_minutes} min</span>
                                                     </div>
                                                     <div className="subject-name">{test.title}</div>
                                                     <div className="subject-meta">
-                                                        <span>📘 {test.subject_name}</span>
-                                                        <span>·</span>
                                                         <span>❓ {test.question_count || 0} questions</span>
                                                     </div>
                                                     <div className="subject-meta" style={{ marginTop: '0.25rem' }}>
@@ -489,13 +509,11 @@ export default function StudentDashboard() {
                                                     style={{ width: `${testRowCardWidth}px`, flex: '0 0 auto' }}
                                                 >
                                                     <div className="flex justify-between items-center mb-2">
-                                                        <span className="subject-code">{test.subject_code}</span>
+                                                        <span className="subject-code">{test.subject_name}</span>
                                                         <span className="text-xs text-muted">{test.time_limit_minutes} min</span>
                                                     </div>
                                                     <div className="subject-name">{test.title}</div>
                                                     <div className="subject-meta">
-                                                        <span>📘 {test.subject_name}</span>
-                                                        <span>·</span>
                                                         <span>❓ {test.question_count || 0} questions</span>
                                                     </div>
                                                     <div className="subject-meta" style={{ marginTop: '0.25rem' }}>
@@ -548,13 +566,11 @@ export default function StudentDashboard() {
                                                     style={{ width: `${testRowCardWidth}px`, flex: '0 0 auto', opacity: 0.92 }}
                                                 >
                                                     <div className="flex justify-between items-center mb-2">
-                                                        <span className="subject-code">{test.subject_code}</span>
+                                                        <span className="subject-code">{test.subject_name}</span>
                                                         <span className="text-xs text-muted">{test.time_limit_minutes} min</span>
                                                     </div>
                                                     <div className="subject-name">{test.title}</div>
                                                     <div className="subject-meta">
-                                                        <span>📘 {test.subject_name}</span>
-                                                        <span>·</span>
                                                         <span>❓ {test.question_count || 0} questions</span>
                                                     </div>
                                                     <div className="subject-meta" style={{ marginTop: '0.25rem' }}>
@@ -576,11 +592,46 @@ export default function StudentDashboard() {
                                 )}
 
                                 <div className="subject-card" style={{ marginTop: '1rem' }}>
-                                    <div className="flex justify-between items-center mb-2">
+                                    <div
+                                        className="flex justify-between mb-2"
+                                        style={{
+                                            alignItems: viewportWidth < 900 ? 'flex-start' : 'center',
+                                            flexWrap: viewportWidth < 900 ? 'wrap' : 'nowrap',
+                                            gap: '0.75rem',
+                                        }}
+                                    >
                                         <div className="subject-name" style={{ marginBottom: 0 }}>Marks Analysis</div>
-                                        <div className="text-xs text-muted" style={{ textAlign: 'right', lineHeight: 1.35 }}>
-                                            <div>X-axis: Test Name</div>
-                                            <div>Y-axis: Marks (%)</div>
+                                        <div
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: viewportWidth < 900 ? 'stretch' : 'center',
+                                                justifyContent: 'flex-end',
+                                                flexDirection: viewportWidth < 900 ? 'column' : 'row',
+                                                gap: '0.6rem',
+                                                marginLeft: viewportWidth < 900 ? 0 : 'auto',
+                                                width: viewportWidth < 900 ? '100%' : 'auto',
+                                            }}
+                                        >
+                                            <select
+                                                className="form-select"
+                                                value={graphSubjectFilter}
+                                                onChange={(event) => setGraphSubjectFilter(event.target.value)}
+                                                style={{
+                                                    minWidth: viewportWidth < 900 ? '100%' : '220px',
+                                                    height: '40px',
+                                                    fontSize: '0.9rem',
+                                                    lineHeight: 1.2,
+                                                    padding: '0.45rem 0.75rem',
+                                                }}
+                                            >
+                                                {graphSubjectOptions.map((option) => (
+                                                    <option key={option.id} value={option.id}>{option.label}</option>
+                                                ))}
+                                            </select>
+                                            <div className="text-xs text-muted" style={{ textAlign: viewportWidth < 900 ? 'left' : 'right', lineHeight: 1.35 }}>
+                                                <div style={{ whiteSpace: 'nowrap' }}>X-axis: Test Name</div>
+                                                <div style={{ whiteSpace: 'nowrap' }}>Y-axis: Marks (%)</div>
+                                            </div>
                                         </div>
                                     </div>
 
