@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 
 class MCQOption(BaseModel):
@@ -15,6 +15,7 @@ class MCQQuestion(BaseModel):
 class MCQTestCreate(BaseModel):
     title: str
     time_limit_minutes: int
+    deadline: Optional[str] = None
     questions: List[MCQQuestion]
 
 

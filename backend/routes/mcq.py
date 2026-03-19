@@ -36,6 +36,7 @@ def serialize_test(t: dict, hide_answers: bool = True) -> dict:
         "subject_id": t.get("subject_id"),
         "title": t.get("title"),
         "time_limit_minutes": t.get("time_limit_minutes"),
+        "deadline": t.get("deadline"),
         "question_count": len(t.get("questions", [])),
         "questions": questions,
         "created_by": t.get("created_by"),
@@ -55,6 +56,7 @@ async def create_test(
         "subject_id": subject_id,
         "title": body.title,
         "time_limit_minutes": body.time_limit_minutes,
+        "deadline": body.deadline,
         "questions": [q.dict() for q in body.questions],
         "created_by": current_user["id"],
         "created_by_name": current_user["name"],
@@ -102,6 +104,7 @@ async def update_test(
     payload = {
         "title": body.title,
         "time_limit_minutes": body.time_limit_minutes,
+        "deadline": body.deadline,
         "questions": [q.dict() for q in body.questions],
         "updated_at": datetime.utcnow().isoformat(),
         "updated_by": current_user["id"],

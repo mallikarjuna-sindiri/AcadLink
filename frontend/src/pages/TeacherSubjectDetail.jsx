@@ -41,12 +41,12 @@ export default function TeacherSubjectDetail() {
     // MCQ
     const [tests, setTests] = useState([]);
     const [showTestForm, setShowTestForm] = useState(false);
-    const [testForm, setTestForm] = useState({ title: '', time_limit_minutes: 30, questions: [] });
+    const [testForm, setTestForm] = useState({ title: '', time_limit_minutes: 30, deadline_date: '', deadline_time: '', questions: [] });
     const [newQuestion, setNewQuestion] = useState({ question_text: '', options: ['', '', '', ''], correct_answer: 0 });
     const [showEditTestForm, setShowEditTestForm] = useState(false);
     const [editingTestId, setEditingTestId] = useState('');
     const [savingEditedTest, setSavingEditedTest] = useState(false);
-    const [editTestForm, setEditTestForm] = useState({ title: '', time_limit_minutes: 30, questions: [] });
+    const [editTestForm, setEditTestForm] = useState({ title: '', time_limit_minutes: 30, deadline_date: '', deadline_time: '', questions: [] });
     const [selectedTest, setSelectedTest] = useState(null);
     const [attempts, setAttempts] = useState([]);
     const [resettingAttemptId, setResettingAttemptId] = useState('');
@@ -316,10 +316,22 @@ export default function TeacherSubjectDetail() {
     const createTest = async (e) => {
         e.preventDefault();
         if (testForm.questions.length === 0) { toast.error('Add at least one question'); return; }
+        if ((testForm.deadline_date && !testForm.deadline_time) || (!testForm.deadline_date && testForm.deadline_time)) {
+            toast.error('Please select both deadline date and time, or leave both empty');
+            return;
+        }
+
+        const payload = {
+            ...testForm,
+            deadline: (testForm.deadline_date && testForm.deadline_time)
+                ? `${testForm.deadline_date}T${testForm.deadline_time}:00`
+                : null,
+        };
+
         try {
-            await api.post(`/api/subjects/${subjectId}/tests/`, testForm);
+            await api.post(`/api/subjects/${subjectId}/tests/`, payload);
             toast.success('Test created!');
-            setTestForm({ title: '', time_limit_minutes: 30, questions: [] });
+            setTestForm({ title: '', time_limit_minutes: 30, deadline_date: '', deadline_time: '', questions: [] });
             setShowTestForm(false);
             const res = await api.get(`/api/subjects/${subjectId}/tests/`);
             setTests(res.data);
@@ -338,10 +350,21 @@ export default function TeacherSubjectDetail() {
         try {
             const res = await api.get(`/api/subjects/${subjectId}/tests/${testId}`);
             const test = res.data || {};
+            const parsedDeadline = test?.deadline ? new Date(test.deadline) : null;
+            const hasValidDate = parsedDeadline && !Number.isNaN(parsedDeadline.getTime());
+            const localDate = hasValidDate
+                ? `${parsedDeadline.getFullYear()}-${String(parsedDeadline.getMonth() + 1).padStart(2, '0')}-${String(parsedDeadline.getDate()).padStart(2, '0')}`
+                : '';
+            const localTime = hasValidDate
+                ? `${String(parsedDeadline.getHours()).padStart(2, '0')}:${String(parsedDeadline.getMinutes()).padStart(2, '0')}`
+                : '';
+
             setEditingTestId(testId);
             setEditTestForm({
                 title: test.title || '',
                 time_limit_minutes: test.time_limit_minutes || 30,
+                deadline_date: localDate,
+                deadline_time: localTime,
                 questions: Array.isArray(test.questions)
                     ? test.questions.map((q) => ({
                         question_text: q.question_text || '',
@@ -421,15 +444,25 @@ export default function TeacherSubjectDetail() {
             return;
         }
 
+        if ((editTestForm.deadline_date && !editTestForm.deadline_time) || (!editTestForm.deadline_date && editTestForm.deadline_time)) {
+            toast.error('Please select both deadline date and time, or leave both empty');
+            return;
+        }
+
         if (!confirm('Save updates to this test and all edited questions?')) return;
+
+        const payload = {
+            title: editTestForm.title.trim(),
+            time_limit_minutes: Number(editTestForm.time_limit_minutes) || 30,
+            deadline: (editTestForm.deadline_date && editTestForm.deadline_time)
+                ? `${editTestForm.deadline_date}T${editTestForm.deadline_time}:00`
+                : null,
+            questions: normalizedQuestions,
+        };
 
         setSavingEditedTest(true);
         try {
-            await api.put(`/api/subjects/${subjectId}/tests/${editingTestId}`, {
-                title: editTestForm.title.trim(),
-                time_limit_minutes: Number(editTestForm.time_limit_minutes) || 30,
-                questions: normalizedQuestions,
-            });
+            await api.put(`/api/subjects/${subjectId}/tests/${editingTestId}`, payload);
             toast.success('Test updated successfully');
             setShowEditTestForm(false);
             setEditingTestId('');
@@ -855,6 +888,7 @@ export default function TeacherSubjectDetail() {
                                         <div className="flex gap-3 text-xs text-muted mb-3">
                                             <span>⏱ {t.time_limit_minutes} min</span>
                                             <span>❓ {t.question_count} questions</span>
+                                            <span>⏰ Due: {t.deadline ? new Date(t.deadline).toLocaleString() : 'Not set'}</span>
                                         </div>
                                         <div className="flex gap-2">
                                             <button className="btn btn-outline btn-sm" onClick={() => loadAttempts(t.id)}>View Results</button>
@@ -1188,6 +1222,19 @@ export default function TeacherSubjectDetail() {
                                         </div>
                                     </div>
 
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                        <div className="form-group">
+                                            <label className="form-label">Deadline Date (optional)</label>
+                                            <input className="form-input" type="date" value={testForm.deadline_date}
+                                                onChange={e => setTestForm({ ...testForm, deadline_date: e.target.value })} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Deadline Time (optional)</label>
+                                            <input className="form-input" type="time" value={testForm.deadline_time}
+                                                onChange={e => setTestForm({ ...testForm, deadline_time: e.target.value })} />
+                                        </div>
+                                    </div>
+
                                     {/* Question builder */}
                                     <div className="card" style={{ background: 'rgba(255,255,255,0.02)' }}>
                                         <h4 className="mb-2">Add Question</h4>
@@ -1273,6 +1320,27 @@ export default function TeacherSubjectDetail() {
                                                 min="1"
                                                 value={editTestForm.time_limit_minutes}
                                                 onChange={e => setEditTestForm({ ...editTestForm, time_limit_minutes: parseInt(e.target.value || '30') })}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                        <div className="form-group">
+                                            <label className="form-label">Deadline Date (optional)</label>
+                                            <input
+                                                className="form-input"
+                                                type="date"
+                                                value={editTestForm.deadline_date}
+                                                onChange={e => setEditTestForm({ ...editTestForm, deadline_date: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Deadline Time (optional)</label>
+                                            <input
+                                                className="form-input"
+                                                type="time"
+                                                value={editTestForm.deadline_time}
+                                                onChange={e => setEditTestForm({ ...editTestForm, deadline_time: e.target.value })}
                                             />
                                         </div>
                                     </div>

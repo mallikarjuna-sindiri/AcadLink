@@ -30,6 +30,8 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
 
     const isSubjectContext = !!subjectTabs;
     const dashboardPath = user ? `/${user.role}` : '/';
+    const isStudent = user?.role === 'student';
+    const isTestsView = location.pathname === dashboardPath && new URLSearchParams(location.search).get('tab') === 'tests';
 
     return (
         <>
@@ -62,9 +64,14 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
                         {!isSubjectContext ? (
                             // General Dashboard Links based on Role
                             <>
-                                <button className={`sidebar-link ${location.pathname === dashboardPath ? 'active' : ''}`} onClick={() => navigate(dashboardPath)}>
+                                <button className={`sidebar-link ${location.pathname === dashboardPath && !isTestsView ? 'active' : ''}`} onClick={() => navigate(dashboardPath)}>
                                     <span className="icon">📚</span> My Subjects
                                 </button>
+                                {isStudent && (
+                                    <button className={`sidebar-link ${isTestsView ? 'active' : ''}`} onClick={() => navigate('/student?tab=tests')}>
+                                        <span className="icon">📝</span> My Tests
+                                    </button>
+                                )}
                                 <button className={`sidebar-link ${location.pathname === notificationsPath ? 'active' : ''}`} onClick={() => navigate(notificationsPath)}>
                                     <span className="icon">🔔</span> Notifications
                                 </button>
