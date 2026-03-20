@@ -6,7 +6,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
-from routes import auth, admin, subjects, materials, assignments, mcq, chat, notifications
+from routes import auth, admin, teacher, subjects, materials, assignments, mcq, chat, notifications, calendar
 from config import UPLOAD_DIR, chat_messages_collection, CORS_ALLOW_ORIGINS, db
 
 security = HTTPBasic()
@@ -56,6 +56,33 @@ async def create_indexes():
     except Exception as exc:
         logger.warning("Failed to create user notifications index: %s", exc)
 
+    try:
+        await db["student_calendar_tasks"].create_index([
+            ("student_id", 1),
+            ("due_at", 1),
+        ])
+    except Exception as exc:
+        logger.warning("Failed to create student calendar tasks index: %s", exc)
+
+    try:
+        await db["teacher_calendar_tasks"].create_index([
+            ("teacher_id", 1),
+            ("due_at", 1),
+        ])
+        await db["teacher_calendar_tasks"].create_index([
+            ("assignee_student_id", 1),
+            ("due_at", 1),
+        ])
+    except Exception as exc:
+        logger.warning("Failed to create teacher calendar tasks index: %s", exc)
+
+    try:
+        await db["holiday_events"].create_index([
+            ("date", 1),
+        ], unique=True)
+    except Exception as exc:
+        logger.warning("Failed to create holiday events index: %s", exc)
+
 # --- Secured Documentation Routes ---
 @app.get("/docs", include_in_schema=False)
 async def get_swagger_documentation(username: str = Depends(get_current_username)):
@@ -84,12 +111,14 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Register routers
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(teacher.router)
 app.include_router(subjects.router)
 app.include_router(materials.router)
 app.include_router(assignments.router)
 app.include_router(mcq.router)
 app.include_router(chat.router)
 app.include_router(notifications.router)
+app.include_router(calendar.router)
 
 
 @app.get("/")

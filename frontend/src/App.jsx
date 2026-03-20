@@ -6,10 +6,12 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import AdminDashboard from './pages/AdminDashboard';
 import TeacherDashboard from './pages/TeacherDashboard';
+import TeacherHolidaysPage from './pages/TeacherHolidaysPage';
 import TeacherSubjectDetail from './pages/TeacherSubjectDetail';
 import StudentDashboard from './pages/StudentDashboard';
 import StudentSubjectDetail from './pages/StudentSubjectDetail';
 import NotificationsPage from './pages/NotificationsPage';
+import StudentCalendarPage from './pages/StudentCalendarPage';
 
 function Unauthorized() {
   return (
@@ -62,6 +64,11 @@ function AppRoutes() {
               <TeacherDashboard />
             </ProtectedRoute>
           } />
+          <Route path="/teacher/holidays" element={
+            <ProtectedRoute allowedRoles={['teacher']}>
+              <TeacherHolidaysPage />
+            </ProtectedRoute>
+          } />
           <Route path="/teacher/notifications" element={
             <ProtectedRoute allowedRoles={['teacher']}>
               <NotificationsPage />
@@ -70,6 +77,11 @@ function AppRoutes() {
           <Route path="/teacher/subject/:subjectId" element={
             <ProtectedRoute allowedRoles={['teacher']}>
               <TeacherSubjectDetail />
+            </ProtectedRoute>
+          } />
+          <Route path="/teacher/calendar" element={
+            <ProtectedRoute allowedRoles={['teacher']}>
+              <StudentCalendarPage />
             </ProtectedRoute>
           } />
 
@@ -82,6 +94,11 @@ function AppRoutes() {
           <Route path="/student/notifications" element={
             <ProtectedRoute allowedRoles={['student']}>
               <NotificationsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/student/calendar" element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <StudentCalendarPage />
             </ProtectedRoute>
           } />
           <Route path="/student/subject/:subjectId" element={

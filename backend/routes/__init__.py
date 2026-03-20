@@ -6,3 +6,4 @@ from routes.assignments import router as assignments_router
 from routes.mcq import router as mcq_router
 from routes.chat import router as chat_router
 from routes.notifications import router as notifications_router
+from routes.calendar import router as calendar_router
