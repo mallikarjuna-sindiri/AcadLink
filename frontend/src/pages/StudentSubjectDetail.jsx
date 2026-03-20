@@ -605,6 +605,8 @@ export default function StudentSubjectDetail() {
     // ── Active MCQ Test View ──────────────────────────────────────
     if (activeTest) {
         const unansweredCount = myAnswers.filter((answer) => answer === -1).length;
+        const maxFullscreenExits = 3;
+        const remainingFullscreenExits = Math.max(maxFullscreenExits - escCount, 0);
         return (
             <div className="exam-shell">
                 <div className="exam-layout">
@@ -618,6 +620,7 @@ export default function StudentSubjectDetail() {
                                 <div className="exam-header-meta">
                                     <span className="exam-chip success">Answered: {answeredCount}/{testQuestions.length}</span>
                                     <span className="exam-chip warning">Review: {reviewCount}</span>
+                                    <span className="exam-chip warning">Fullscreen Exits: {escCount}/{maxFullscreenExits}</span>
                                     <span className={`exam-chip ${isExamFullscreen ? 'info' : 'danger'}`}>
                                         {isExamFullscreen ? 'Fullscreen On' : 'Fullscreen Off'}
                                     </span>
@@ -632,7 +635,11 @@ export default function StudentSubjectDetail() {
 
                         {!isExamFullscreen && (
                             <div className="exam-warning">
-                                Fullscreen is required to continue answering questions.
+                                <strong>Reason:</strong> Exam proctoring requires fullscreen mode to prevent tab/app switching.
+                                <br />
+                                <strong>What happens:</strong> If you exit fullscreen {maxFullscreenExits} times, the test is auto-submitted.
+                                <br />
+                                <strong>Status:</strong> {remainingFullscreenExits} exit{remainingFullscreenExits === 1 ? '' : 's'} remaining before auto-submit.
                             </div>
                         )}
 
