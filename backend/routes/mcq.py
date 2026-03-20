@@ -118,6 +118,27 @@ async def update_test(
     return {"message": "Test updated successfully", "test_id": test_id}
 
 
+# ── Teacher: delete MCQ test ───────────────────────────────────────────────
+@router.delete("/{test_id}")
+async def delete_test(
+    subject_id: str,
+    test_id: str,
+    current_user: dict = Depends(require_teacher_or_admin),
+):
+    existing = await mcq_tests_collection.find_one({"_id": ObjectId(test_id), "subject_id": subject_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    attempts = await mcq_attempts_collection.find({"test_id": test_id}, {"_id": 1}).to_list(None)
+    for attempt in attempts:
+        cleanup_attempt_recordings(str(attempt.get("_id")))
+
+    await mcq_attempts_collection.delete_many({"test_id": test_id})
+    await mcq_tests_collection.delete_one({"_id": ObjectId(test_id)})
+
+    return {"message": "Test deleted successfully", "test_id": test_id}
+
+
 # ── Student: submit attempt ──────────────────────────────────────────────────
 @router.post("/{test_id}/attempt", status_code=status.HTTP_201_CREATED)
 async def submit_attempt(

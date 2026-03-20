@@ -752,7 +752,7 @@ export default function StudentCalendarPage() {
                                                     }}
                                                     title={`${item.title} • ${formatDateTime(item.start_at || item.due_at)}`}
                                                 >
-                                                    {isHolidayItem ? `Festival/Holiday: ${item.title}` : item.title}
+                                                    {isHolidayItem ? `Holiday: ${item.title}` : item.title}
                                                 </span>
                                                 );
                                             })
