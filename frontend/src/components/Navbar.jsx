@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAvatarFallback } from '../utils/avatar';
@@ -8,14 +8,11 @@ export default function Navbar() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-    const [avatarLoadError, setAvatarLoadError] = useState(false);
+    const [avatarLoadErrorFor, setAvatarLoadErrorFor] = useState('');
     const avatarFallback = getAvatarFallback(user?.name || '');
 
-    const hasValidAvatar = Boolean(user?.picture) && !avatarLoadError;
-
-    useEffect(() => {
-        setAvatarLoadError(false);
-    }, [user?.picture]);
+    const userPicture = user?.picture || '';
+    const hasValidAvatar = Boolean(userPicture) && avatarLoadErrorFor !== userPicture;
 
     const handleLogout = () => {
         setShowLogoutConfirm(false);
@@ -38,7 +35,7 @@ export default function Navbar() {
                                 alt={user.name}
                                 className="avatar-sm"
                                 style={{ width: 28, height: 28, borderRadius: '50%' }}
-                                onError={() => setAvatarLoadError(true)}
+                                onError={() => setAvatarLoadErrorFor(userPicture)}
                             />
                         ) : (
                             <div className="avatar-sm avatar-placeholder" style={{ width: 28, height: 28, borderRadius: '50%', background: avatarFallback.background, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>

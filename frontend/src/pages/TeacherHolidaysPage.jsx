@@ -27,31 +27,37 @@ export default function TeacherHolidaysPage() {
         });
 
     useEffect(() => {
-        loadHolidayList(selectedHolidayYear);
+        let isActive = true;
+        const targetYear = selectedHolidayYear;
+        const query = targetYear ? `?year=${targetYear}` : '';
+
+        api.get(`/api/teacher/holiday/list${query}`)
+            .then((response) => {
+                if (!isActive) return;
+
+                const items = Array.isArray(response.data?.items) ? response.data.items : [];
+                const years = Array.isArray(response.data?.years)
+                    ? response.data.years.map((value) => String(value)).filter((value) => /^\d{4}$/.test(value))
+                    : [];
+
+                setHolidayYears(years);
+
+                if (years.length > 0 && !years.includes(targetYear)) {
+                    setSelectedHolidayYear(years[0]);
+                    return;
+                }
+
+                setHolidayItems(items);
+            })
+            .catch((err) => {
+                if (!isActive) return;
+                toast.error(err.response?.data?.detail || 'Failed to load holiday list');
+            });
+
+        return () => {
+            isActive = false;
+        };
     }, [selectedHolidayYear]);
-
-    const loadHolidayList = async (year) => {
-        const targetYear = year || selectedHolidayYear;
-        try {
-            const query = targetYear ? `?year=${targetYear}` : '';
-            const response = await api.get(`/api/teacher/holiday/list${query}`);
-            const items = Array.isArray(response.data?.items) ? response.data.items : [];
-            const years = Array.isArray(response.data?.years)
-                ? response.data.years.map((value) => String(value)).filter((value) => /^\d{4}$/.test(value))
-                : [];
-
-            setHolidayYears(years);
-
-            if (years.length > 0 && !years.includes(targetYear)) {
-                setSelectedHolidayYear(years[0]);
-                return;
-            }
-
-            setHolidayItems(items);
-        } catch (err) {
-            toast.error(err.response?.data?.detail || 'Failed to load holiday list');
-        }
-    };
 
     return (
         <div className="app-shell">

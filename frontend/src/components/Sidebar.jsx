@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAvatarFallback, getUserPicture, resolveAvatarUrl } from '../utils/avatar';
@@ -11,7 +11,7 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
     const location = useLocation();
     const [isOpen, setIsOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-    const [avatarLoadError, setAvatarLoadError] = useState(false);
+    const [avatarLoadErrorFor, setAvatarLoadErrorFor] = useState('');
     const [miniCalendarDate, setMiniCalendarDate] = useState(() => {
         const today = new Date();
         return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -23,7 +23,7 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
     const avatarFallback = getAvatarFallback(user?.name || '');
     const avatarUrl = resolveAvatarUrl(getUserPicture(user));
 
-    const hasValidAvatar = Boolean(avatarUrl) && !avatarLoadError;
+    const hasValidAvatar = Boolean(avatarUrl) && avatarLoadErrorFor !== avatarUrl;
     const notificationsPath = user ? `/${user.role}/notifications` : '/';
     const isSubjectContext = !!subjectTabs;
     const dashboardPath = user ? `/${user.role}` : '/';
@@ -47,19 +47,15 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
         : null;
     const selectedDateKey = selectedDateFromQuery || miniSelectedDateKey;
 
-    useEffect(() => {
-        setAvatarLoadError(false);
-    }, [avatarUrl]);
-
-    useEffect(() => {
-        if (!selectedDateFromQuery) return;
+    const queryDrivenCalendarDate = useMemo(() => {
+        if (!selectedDateFromQuery) return null;
         const [yearStr, monthStr] = selectedDateFromQuery.split('-');
         const year = Number(yearStr);
         const month = Number(monthStr);
-        if (Number.isNaN(year) || Number.isNaN(month) || month < 1 || month > 12) return;
-        setMiniCalendarDate(new Date(year, month - 1, 1));
-        setMiniSelectedDateKey(selectedDateFromQuery);
+        if (Number.isNaN(year) || Number.isNaN(month) || month < 1 || month > 12) return null;
+        return new Date(year, month - 1, 1);
     }, [selectedDateFromQuery]);
+    const activeMiniCalendarDate = queryDrivenCalendarDate || miniCalendarDate;
 
     const handleLogout = () => {
         setShowLogoutConfirm(false);
@@ -72,9 +68,9 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
     const yearOptions = Array.from({ length: 11 }, (_, index) => currentYear - 5 + index);
 
     const miniCalendar = useMemo(() => {
-        const year = miniCalendarDate.getFullYear();
-        const month = miniCalendarDate.getMonth();
-        const monthLabel = miniCalendarDate.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+        const year = activeMiniCalendarDate.getFullYear();
+        const month = activeMiniCalendarDate.getMonth();
+        const monthLabel = activeMiniCalendarDate.toLocaleString(undefined, { month: 'long', year: 'numeric' });
 
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -98,7 +94,7 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
                     })
                 ),
         };
-    }, [miniCalendarDate, selectedDateKey, todayDateKey]);
+    }, [activeMiniCalendarDate, selectedDateKey, todayDateKey]);
 
     const goMiniPrevMonth = () => {
         setMiniCalendarDate((previous) => new Date(previous.getFullYear(), previous.getMonth() - 1, 1));
@@ -352,7 +348,7 @@ export default function Sidebar({ subject, subjectTabs, activeTab, onTabSelect }
                                     alt={user.name}
                                     className="avatar"
                                     style={{ width: 36, height: 36, borderRadius: '50%' }}
-                                    onError={() => setAvatarLoadError(true)}
+                                    onError={() => setAvatarLoadErrorFor(avatarUrl)}
                                 />
                             ) : (
                                 <div className="avatar avatar-placeholder" style={{ width: 36, height: 36, borderRadius: '50%', background: avatarFallback.background, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 'bold' }}>

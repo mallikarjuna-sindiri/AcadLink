@@ -22,6 +22,7 @@ export default function StudentDashboard() {
     const [viewportWidth, setViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
     const [marksChartContainerWidth, setMarksChartContainerWidth] = useState(0);
     const [brokenAvatarKeys, setBrokenAvatarKeys] = useState({});
+    const [graphSubjectFilter, setGraphSubjectFilter] = useState('all');
 
     const getPictureUrl = (pictureValue) => resolveAvatarUrl(getUserPicture({ picture: pictureValue }));
     const hasAvatar = (key, avatarUrl) => Boolean(avatarUrl) && !brokenAvatarKeys[key];
@@ -38,6 +39,7 @@ export default function StudentDashboard() {
                 return {
                     id: test.id,
                     subjectId: test.subject_id,
+                    subjectName: test.subject_name,
                     title: test.title,
                     date: submittedAt ? new Date(submittedAt) : null,
                     dateLabel: submittedAt
@@ -73,6 +75,51 @@ export default function StudentDashboard() {
             lowestMarks,
         };
     }, [myTests]);
+
+    const graphSubjectOptions = useMemo(() => {
+        const uniqueSubjects = new Map();
+        marksAnalysis.attempts.forEach((attempt) => {
+            if (!attempt.subjectId) return;
+            if (!uniqueSubjects.has(attempt.subjectId)) {
+                uniqueSubjects.set(attempt.subjectId, attempt.subjectName || `Subject ${uniqueSubjects.size + 1}`);
+            }
+        });
+        return [
+            { id: 'all', label: 'All Subjects' },
+            ...Array.from(uniqueSubjects.entries()).map(([id, label]) => ({ id, label })),
+        ];
+    }, [marksAnalysis.attempts]);
+
+    const effectiveGraphSubjectFilter = graphSubjectOptions.some((option) => option.id === graphSubjectFilter)
+        ? graphSubjectFilter
+        : 'all';
+
+    const filteredAttempts = useMemo(
+        () => marksAnalysis.attempts.filter((item) => (
+            effectiveGraphSubjectFilter === 'all' || item.subjectId === effectiveGraphSubjectFilter
+        )),
+        [marksAnalysis.attempts, effectiveGraphSubjectFilter]
+    );
+
+    const filteredMarksAnalysis = useMemo(() => {
+        const attemptedTests = filteredAttempts.length;
+        const averageMarks = attemptedTests
+            ? Math.round(filteredAttempts.reduce((sum, item) => sum + item.marks, 0) / attemptedTests)
+            : 0;
+        const latestMarks = attemptedTests ? Math.round(filteredAttempts[filteredAttempts.length - 1].marks) : 0;
+        const bestMarks = attemptedTests ? Math.round(Math.max(...filteredAttempts.map((item) => item.marks))) : 0;
+        const lowestMarks = attemptedTests ? Math.round(Math.min(...filteredAttempts.map((item) => item.marks))) : 0;
+
+        return {
+            attempts: filteredAttempts,
+            totalTests: filteredAttempts.length,
+            attemptedTests,
+            averageMarks,
+            latestMarks,
+            bestMarks,
+            lowestMarks,
+        };
+    }, [filteredAttempts]);
 
     const attemptedTestsList = useMemo(
         () => myTests.filter((test) => test.my_attempt?.attempted),
@@ -128,7 +175,7 @@ export default function StudentDashboard() {
     };
 
     const marksChart = useMemo(() => {
-        const pointsCount = marksAnalysis.attempts.length;
+        const pointsCount = filteredMarksAnalysis.attempts.length;
         const isMobileViewport = viewportWidth < 768;
         const isTabletViewport = viewportWidth >= 768 && viewportWidth < 1024;
         const visiblePointsLimit = isMobileViewport ? 5 : (isTabletViewport ? 8 : 15);
@@ -171,7 +218,7 @@ export default function StudentDashboard() {
         const occupiedWidth = pointsCount > 1 ? (pointsCount - 1) * stepX : 0;
         const centeredOffsetX = pointsCount > 1 ? Math.max(0, (effectivePlotWidth - occupiedWidth) / 2) : (effectivePlotWidth / 2);
 
-        const plottedPoints = marksAnalysis.attempts.map((item, index) => {
+        const plottedPoints = filteredMarksAnalysis.attempts.map((item, index) => {
             const x = pointsCount === 1
                 ? leftPadding + xAxisStartGap + (effectivePlotWidth / 2)
                 : leftPadding + xAxisStartGap + centeredOffsetX + (index * stepX);
@@ -211,7 +258,7 @@ export default function StudentDashboard() {
                 ? `${curvedLinePath(plottedPoints)} L ${plottedPoints[plottedPoints.length - 1].x} ${xAxisY} L ${plottedPoints[0].x} ${xAxisY} Z`
                 : '',
         };
-    }, [marksAnalysis, viewportWidth, marksChartContainerWidth]);
+    }, [filteredMarksAnalysis, viewportWidth, marksChartContainerWidth]);
 
     useEffect(() => {
         loadSubjects();
@@ -262,7 +309,7 @@ export default function StudentDashboard() {
         observer.observe(container);
 
         return () => observer.disconnect();
-    }, [isTestsView, marksAnalysis.attempts.length]);
+    }, [isTestsView, filteredMarksAnalysis.attempts.length]);
 
     const loadSubjects = async () => {
         setFetching(true);
@@ -672,19 +719,19 @@ export default function StudentDashboard() {
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.6rem', marginBottom: '0.9rem' }}>
                                         <div style={{ border: '1px solid var(--border-color)', borderRadius: '10px', padding: '0.5rem 0.7rem' }}>
                                             <div className="text-xs text-muted">Total / Attempted</div>
-                                            <div style={{ fontWeight: 700 }}>{marksAnalysis.totalTests} / {marksAnalysis.attemptedTests}</div>
+                                            <div style={{ fontWeight: 700 }}>{filteredMarksAnalysis.totalTests} / {filteredMarksAnalysis.attemptedTests}</div>
                                         </div>
                                         <div style={{ border: '1px solid var(--border-color)', borderRadius: '10px', padding: '0.5rem 0.7rem' }}>
                                             <div className="text-xs text-muted">Average</div>
-                                            <div style={{ fontWeight: 700 }}>{marksAnalysis.averageMarks}%</div>
+                                            <div style={{ fontWeight: 700 }}>{filteredMarksAnalysis.averageMarks}%</div>
                                         </div>
                                         <div style={{ border: '1px solid var(--border-color)', borderRadius: '10px', padding: '0.5rem 0.7rem' }}>
                                             <div className="text-xs text-muted">Best / Lowest / Latest</div>
-                                            <div style={{ fontWeight: 700 }}>{marksAnalysis.bestMarks}% / {marksAnalysis.lowestMarks}% / {marksAnalysis.latestMarks}%</div>
+                                            <div style={{ fontWeight: 700 }}>{filteredMarksAnalysis.bestMarks}% / {filteredMarksAnalysis.lowestMarks}% / {filteredMarksAnalysis.latestMarks}%</div>
                                         </div>
                                     </div>
 
-                                    {marksAnalysis.attempts.length === 0 ? (
+                                    {filteredMarksAnalysis.attempts.length === 0 ? (
                                         <div className="text-sm text-muted" style={{ padding: '0.5rem 0' }}>
                                             Attempt tests to see marks trend graph.
                                         </div>
