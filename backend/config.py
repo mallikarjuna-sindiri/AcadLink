@@ -4,10 +4,22 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 load_dotenv()
 
+
+def _as_bool(value: str, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "acadlink")
 MONGO_SERVER_SELECTION_TIMEOUT_MS = int(os.getenv("MONGO_SERVER_SELECTION_TIMEOUT_MS", "5000"))
-JWT_SECRET = os.getenv("JWT_SECRET", "change_this_secret")
+DEV_MODE = _as_bool(os.getenv("DEV_MODE"), default=False)
+JWT_SECRET = os.getenv("JWT_SECRET", "").strip()
+if not JWT_SECRET:
+    if DEV_MODE:
+        JWT_SECRET = "dev-insecure-secret-change-me"
+    else:
+        raise RuntimeError("JWT_SECRET is required when DEV_MODE is false.")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRY_HOURS = int(os.getenv("JWT_EXPIRY_HOURS", "48"))
 COLLEGE_EMAIL_DOMAIN = os.getenv("COLLEGE_EMAIL_DOMAIN", "vnrvjiet.in")

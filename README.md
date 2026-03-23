@@ -176,6 +176,7 @@ Default development URL: `http://localhost:5173`
 | `MONGO_URI` | Yes | MongoDB connection string |
 | `DATABASE_NAME` | Yes | Database name |
 | `MONGO_SERVER_SELECTION_TIMEOUT_MS` | No | Mongo timeout in milliseconds |
+| `DEV_MODE` | Yes | Enable development-only behavior (`true` for local only, `false` in production) |
 | `JWT_SECRET` | Yes | JWT signing secret |
 | `JWT_ALGORITHM` | Yes | JWT algorithm (default `HS256`) |
 | `JWT_EXPIRY_HOURS` | Yes | JWT expiration in hours |
