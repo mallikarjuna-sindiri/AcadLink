@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import api from '../api/client';
@@ -169,7 +169,7 @@ export default function StudentCalendarPage() {
         return grouped;
     }, [expandedEvents]);
 
-    const selectedDateEvents = eventsByDate[selectedDate] || [];
+    const selectedDateEvents = useMemo(() => eventsByDate[selectedDate] || [], [eventsByDate, selectedDate]);
 
     const timelineEvents = useMemo(() => {
         const baseEvents = selectedDateEvents
@@ -287,7 +287,7 @@ export default function StudentCalendarPage() {
         return laidOut;
     }, [selectedDateEvents]);
 
-    const loadEvents = async () => {
+    const loadEvents = useCallback(async () => {
         setLoading(true);
         try {
             const response = await api.get(`/api/calendar/${calendarApiScope}/events`);
@@ -298,11 +298,11 @@ export default function StudentCalendarPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [calendarApiScope]);
 
     useEffect(() => {
         loadEvents();
-    }, [calendarApiScope]);
+    }, [loadEvents]);
 
     useEffect(() => {
         const queryDate = new URLSearchParams(location.search).get('date');
