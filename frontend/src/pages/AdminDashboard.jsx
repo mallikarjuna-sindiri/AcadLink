@@ -1,10 +1,13 @@
 /* eslint-disable no-unused-vars */
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import Sidebar from '../components/Sidebar';
 import toast from 'react-hot-toast';
+import { getAvatarFallback, getUserPicture, resolveAvatarUrl } from '../utils/avatar';
 
 export default function AdminDashboard() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [stats, setStats] = useState(null);
     const [teachers, setTeachers] = useState([]);
     const [students, setStudents] = useState([]);
@@ -13,10 +16,74 @@ export default function AdminDashboard() {
     const [showCreateTeacher, setShowCreateTeacher] = useState(false);
     const [form, setForm] = useState({ name: '', email: '' });
     const [loading, setLoading] = useState(false);
+    const [holidayFile, setHolidayFile] = useState(null);
+    const [holidayLoading, setHolidayLoading] = useState(false);
+    const [holidayItems, setHolidayItems] = useState([]);
+    const [brokenAvatarKeys, setBrokenAvatarKeys] = useState({});
+    const yearOptions = ['2025', '2026', '2027'];
+    const [selectedHolidayYear, setSelectedHolidayYear] = useState('2026');
+    const [availableHolidayYears, setAvailableHolidayYears] = useState([]);
+    const adminTabOptions = ['overview', 'teachers', 'students', 'subjects', 'holidays'];
+
+    const holidayYearOptions = [...new Set([...yearOptions, ...availableHolidayYears])]
+        .filter((year) => /^\d{4}$/.test(String(year)))
+        .sort();
+
+    const getHolidayYear = (item) => {
+        if (item?.iso_date) return String(item.iso_date).slice(0, 4);
+        const dateValue = String(item?.date || '');
+        if (/^\d{2}-\d{2}-\d{4}$/.test(dateValue)) return dateValue.slice(-4);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return dateValue.slice(0, 4);
+        return '';
+    };
+
+    const sortedHolidayItems = holidayItems
+        .slice()
+        .sort((first, second) => {
+        const parseHolidayDate = (value) => {
+            const parts = String(value || '').split('-');
+            if (parts.length !== 3) return Number.MAX_SAFE_INTEGER;
+            const [day, month, year] = parts.map(Number);
+            if (!day || !month || !year) return Number.MAX_SAFE_INTEGER;
+            return new Date(year, month - 1, day).getTime();
+        };
+        return parseHolidayDate(first.date) - parseHolidayDate(second.date);
+    });
+
+    const getPictureUrl = (pictureValue) => resolveAvatarUrl(getUserPicture({ picture: pictureValue }));
+
+    const hasAvatar = (key, avatarUrl) => Boolean(avatarUrl) && !brokenAvatarKeys[key];
+
+    const markAvatarError = (key) => {
+        setBrokenAvatarKeys((previous) => ({ ...previous, [key]: true }));
+    };
 
     useEffect(() => {
         loadDashboard();
     }, []);
+
+    useEffect(() => {
+        const urlTab = searchParams.get('tab');
+        if (!urlTab) {
+            setActiveTab('overview');
+            return;
+        }
+        if (adminTabOptions.includes(urlTab)) {
+            setActiveTab(urlTab);
+            return;
+        }
+        setActiveTab('overview');
+    }, [searchParams]);
+
+    const handleAdminTabChange = (tabId) => {
+        setActiveTab(tabId);
+        setSearchParams({ tab: tabId });
+    };
+
+    useEffect(() => {
+        if (activeTab !== 'holidays') return;
+        loadHolidayList(selectedHolidayYear);
+    }, [activeTab, selectedHolidayYear]);
 
     const loadDashboard = async () => {
         try {
@@ -87,11 +154,66 @@ export default function AdminDashboard() {
         }
     };
 
+    const extractHolidaysFromImage = async () => {
+        if (!holidayFile) {
+            toast.error('Please choose a holiday list image');
+            return;
+        }
+
+        setHolidayLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', holidayFile);
+
+            const response = await api.post('/api/admin/holiday/extract-festivals', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            const items = Array.isArray(response.data?.items) ? response.data.items : [];
+            let nextSelectedYear = selectedHolidayYear;
+            if (items.length > 0) {
+                const extractedYears = [...new Set(items.map((item) => getHolidayYear(item)).filter(Boolean))];
+                if (extractedYears.length > 0 && !extractedYears.includes(selectedHolidayYear)) {
+                    nextSelectedYear = extractedYears[0];
+                    setSelectedHolidayYear(nextSelectedYear);
+                }
+            }
+
+            setHolidayItems(items);
+
+            toast.success(`Extracted ${items.length} holidays`);
+            await loadHolidayList(nextSelectedYear);
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Failed to extract holidays from image');
+        } finally {
+            setHolidayLoading(false);
+        }
+    };
+
+    const loadHolidayList = async (year) => {
+        const targetYear = year || selectedHolidayYear;
+        try {
+            const query = targetYear ? `?year=${targetYear}` : '';
+            const response = await api.get(`/api/admin/holiday/list${query}`);
+            const items = Array.isArray(response.data?.items) ? response.data.items : [];
+            const years = Array.isArray(response.data?.years)
+                ? response.data.years.map((value) => String(value)).filter((value) => /^\d{4}$/.test(value))
+                : [];
+
+            setAvailableHolidayYears(years);
+
+            setHolidayItems(items);
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Failed to load holiday list');
+        }
+    };
+
     const TABS = [
         { id: 'overview', label: '📊 Overview' },
         { id: 'teachers', label: `👨‍🏫 Faculty (${teachers.length})` },
         { id: 'students', label: `👨‍🎓 Students (${students.length})` },
         { id: 'subjects', label: `📚 Subjects (${subjects.length})` },
+        { id: 'holidays', label: '🎉 Holidays' },
     ];
 
     return (
@@ -113,7 +235,7 @@ export default function AdminDashboard() {
                 <div className="tabs">
                     {TABS.map(tab => (
                         <button key={tab.id} className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-                            onClick={() => setActiveTab(tab.id)}>
+                            onClick={() => handleAdminTabChange(tab.id)}>
                             {tab.label}
                         </button>
                     ))}
@@ -176,10 +298,17 @@ export default function AdminDashboard() {
                                             <tr key={t.id}>
                                                 <td>
                                                     <div className="flex items-center gap-2">
-                                                        {t.picture ? (
-                                                            <img src={t.picture} alt={t.name} className="avatar avatar-sm" />
+                                                        {hasAvatar(`teacher-${t.id}`, getPictureUrl(t.picture)) ? (
+                                                            <img
+                                                                src={getPictureUrl(t.picture)}
+                                                                alt={t.name}
+                                                                className="avatar avatar-sm"
+                                                                onError={() => markAvatarError(`teacher-${t.id}`)}
+                                                            />
                                                         ) : (
-                                                            <div className="avatar avatar-sm avatar-placeholder">{t.name?.[0]}</div>
+                                                            <div className="avatar avatar-sm avatar-placeholder" style={{ background: getAvatarFallback(t.name || '').background }}>
+                                                                {getAvatarFallback(t.name || '').initial}
+                                                            </div>
                                                         )}
                                                         <span className="font-bold">{t.name}</span>
                                                     </div>
@@ -234,10 +363,17 @@ export default function AdminDashboard() {
                                             <tr key={s.id}>
                                                 <td>
                                                     <div className="flex items-center gap-2">
-                                                        {s.picture ? (
-                                                            <img src={s.picture} alt={s.name} className="avatar avatar-sm" />
+                                                        {hasAvatar(`student-${s.id}`, getPictureUrl(s.picture)) ? (
+                                                            <img
+                                                                src={getPictureUrl(s.picture)}
+                                                                alt={s.name}
+                                                                className="avatar avatar-sm"
+                                                                onError={() => markAvatarError(`student-${s.id}`)}
+                                                            />
                                                         ) : (
-                                                            <div className="avatar avatar-sm avatar-placeholder">{s.name?.[0]}</div>
+                                                            <div className="avatar avatar-sm avatar-placeholder" style={{ background: getAvatarFallback(s.name || '').background }}>
+                                                                {getAvatarFallback(s.name || '').initial}
+                                                            </div>
                                                         )}
                                                         <span className="font-bold">{s.name}</span>
                                                     </div>
@@ -301,6 +437,72 @@ export default function AdminDashboard() {
                                 </table>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* Holidays */}
+                {activeTab === 'holidays' && (
+                    <div className="animate-fade" style={{ display: 'grid', gap: '1rem' }}>
+                        <div className="card" style={{ display: 'grid', gap: '0.75rem' }}>
+                            <h3 style={{ margin: 0 }}>Upload Holiday List Image</h3>
+                            <p className="text-sm text-muted" style={{ margin: 0 }}>
+                                Upload the holiday calendar image to extract festival names and dates.
+                            </p>
+
+                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => setHolidayFile(e.target.files?.[0] || null)}
+                                />
+                                <button className="btn btn-primary" onClick={extractHolidaysFromImage} disabled={holidayLoading}>
+                                    {holidayLoading ? 'Extracting…' : 'Extract Holidays'}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="table-wrapper">
+                        <div className="card" style={{ display: 'flex', gap: '0.55rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                            <label className="text-sm text-muted" style={{ minWidth: 'fit-content', fontWeight: 600 }}>Academic Year:</label>
+                            <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                                {holidayYearOptions.map((year) => (
+                                    <button
+                                        key={year}
+                                        type="button"
+                                        className={`btn btn-sm ${selectedHolidayYear === year ? 'btn-primary' : 'btn-outline'}`}
+                                        onClick={() => setSelectedHolidayYear(year)}
+                                    >
+                                        {year}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Festival Name</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sortedHolidayItems.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={2} className="text-sm text-muted">
+                                                upload the holiday list
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        sortedHolidayItems.map((item, index) => (
+                                            <tr key={`${item.date}-${item.festival}-${index}`}>
+                                                <td className="font-mono">{item.date}</td>
+                                                <td className="font-bold">{item.festival}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
             </div>

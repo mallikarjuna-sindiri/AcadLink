@@ -17,7 +17,9 @@ export default function TeacherDashboard() {
     const [fetching, setFetching] = useState(true);
     const [form, setForm] = useState({ name: '', year: 'BTech-I', semester: 'I', branch: 'CSE' });
 
-    useEffect(() => { loadSubjects(); }, []);
+    useEffect(() => {
+        loadSubjects();
+    }, []);
 
     const loadSubjects = async () => {
         setFetching(true);

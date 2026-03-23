@@ -4,11 +4,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/client';
 import Sidebar from '../components/Sidebar';
 import toast from 'react-hot-toast';
+import { getAvatarFallback, getUserPicture, resolveAvatarUrl } from '../utils/avatar';
 
 export default function StudentDashboard() {
     const navigate = useNavigate();
     const location = useLocation();
     const testsSectionRef = useRef(null);
+    const marksChartContainerRef = useRef(null);
     const isTestsView = new URLSearchParams(location.search).get('tab') === 'tests';
     const [subjects, setSubjects] = useState([]);
     const [myTests, setMyTests] = useState([]);
@@ -18,20 +20,14 @@ export default function StudentDashboard() {
     const [fetching, setFetching] = useState(true);
     const [showJoin, setShowJoin] = useState(false);
     const [viewportWidth, setViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
-    const [graphSubjectFilter, setGraphSubjectFilter] = useState('all');
+    const [marksChartContainerWidth, setMarksChartContainerWidth] = useState(0);
+    const [brokenAvatarKeys, setBrokenAvatarKeys] = useState({});
 
-    const graphSubjectOptions = useMemo(() => {
-        const options = subjects.map((subject) => ({
-            id: subject.id,
-            label: `${subject.name}`,
-        }));
-        return [{ id: 'all', label: 'All Subjects' }, ...options];
-    }, [subjects]);
-
-    const graphSourceTests = useMemo(() => {
-        if (graphSubjectFilter === 'all') return myTests;
-        return myTests.filter((test) => test.subject_id === graphSubjectFilter);
-    }, [myTests, graphSubjectFilter]);
+    const getPictureUrl = (pictureValue) => resolveAvatarUrl(getUserPicture({ picture: pictureValue }));
+    const hasAvatar = (key, avatarUrl) => Boolean(avatarUrl) && !brokenAvatarKeys[key];
+    const markAvatarError = (key) => {
+        setBrokenAvatarKeys((previous) => ({ ...previous, [key]: true }));
+    };
 
     const marksAnalysis = useMemo(() => {
         const attempts = graphSourceTests
@@ -135,33 +131,50 @@ export default function StudentDashboard() {
         const pointsCount = marksAnalysis.attempts.length;
         const isMobileViewport = viewportWidth < 768;
         const isTabletViewport = viewportWidth >= 768 && viewportWidth < 1024;
+        const visiblePointsLimit = isMobileViewport ? 5 : (isTabletViewport ? 8 : 15);
+        const shouldUseHorizontalScroll = pointsCount > visiblePointsLimit;
 
-        const minPointGapPx = isMobileViewport ? 30 : (isTabletViewport ? 34 : 37.8);
-        const yTickGapPx = isMobileViewport ? 30 : 37.8;
-        const leftPadding = isMobileViewport ? 48 : 70;
-        const rightPadding = isMobileViewport ? 24 : 40;
-        const topPadding = isMobileViewport ? 18 : 28;
-        const bottomPadding = isMobileViewport ? 66 : 74;
-        const xAxisStartGap = isMobileViewport ? 16 : 28;
-        const xAxisEndGap = isMobileViewport ? 12 : 20;
+        const fallbackWidth = Math.max(300, viewportWidth - (isMobileViewport ? 28 : (isTabletViewport ? 72 : 96)));
+        const containerWidth = Math.max(300, marksChartContainerWidth || fallbackWidth);
+        const isNarrowContainer = containerWidth < 520;
+        const isVeryNarrowContainer = containerWidth < 390;
 
-        const containerWidth = Math.max(300, viewportWidth - (isMobileViewport ? 28 : (isTabletViewport ? 72 : 96)));
+        const minPointGapPx = isVeryNarrowContainer ? 28 : (isNarrowContainer ? 32 : (isTabletViewport ? 34 : 37.8));
+        const leftPadding = isVeryNarrowContainer ? 42 : (isNarrowContainer ? 50 : 70);
+        const rightPadding = isVeryNarrowContainer ? 16 : (isNarrowContainer ? 22 : 40);
+        const topPadding = isVeryNarrowContainer ? 14 : (isNarrowContainer ? 18 : 28);
+        const bottomPadding = isVeryNarrowContainer ? 58 : (isNarrowContainer ? 64 : 74);
+        const xAxisStartGap = isVeryNarrowContainer ? 10 : (isNarrowContainer ? 14 : 28);
+        const xAxisEndGap = isVeryNarrowContainer ? 8 : (isNarrowContainer ? 10 : 20);
+
         const requiredPlotWidth = Math.max(0, (pointsCount - 1) * minPointGapPx);
         const requiredChartWidth = leftPadding + xAxisStartGap + requiredPlotWidth + xAxisEndGap + rightPadding;
-        const chartWidth = Math.max(containerWidth, requiredChartWidth);
+        const chartWidth = shouldUseHorizontalScroll ? Math.max(containerWidth, requiredChartWidth) : containerWidth;
 
         const plotWidth = Math.max(1, chartWidth - leftPadding - rightPadding);
-        const plotHeight = yTickGapPx * 10; // 0..100 => 10 equal gaps
+        const plotHeight = Math.round(Math.min(378, Math.max(220, chartWidth * (isVeryNarrowContainer ? 0.62 : 0.52))));
+        const yTickGapPx = plotHeight / 10;
         const chartHeight = topPadding + plotHeight + bottomPadding;
         const xAxisY = topPadding + plotHeight;
-        const xAxisLabelY = xAxisY + (isMobileViewport ? 20 : 28);
+        const xAxisLabelY = xAxisY + (isVeryNarrowContainer ? 16 : (isNarrowContainer ? 20 : 28));
         const effectivePlotWidth = Math.max(1, plotWidth - xAxisStartGap - xAxisEndGap);
-        const stepX = pointsCount > 1 ? effectivePlotWidth / (pointsCount - 1) : 0;
+        const fixedGapRatioByCount = {
+            2: 0.8,
+            3: 1 / 3,
+        };
+        const fixedGapRatio = !shouldUseHorizontalScroll ? fixedGapRatioByCount[pointsCount] : null;
+        const spacingSlotCount = shouldUseHorizontalScroll ? pointsCount : visiblePointsLimit;
+        const slotDivisor = Math.max(1, spacingSlotCount - 1);
+        const stepX = fixedGapRatio
+            ? (effectivePlotWidth * fixedGapRatio)
+            : (effectivePlotWidth / slotDivisor);
+        const occupiedWidth = pointsCount > 1 ? (pointsCount - 1) * stepX : 0;
+        const centeredOffsetX = pointsCount > 1 ? Math.max(0, (effectivePlotWidth - occupiedWidth) / 2) : (effectivePlotWidth / 2);
 
         const plottedPoints = marksAnalysis.attempts.map((item, index) => {
             const x = pointsCount === 1
                 ? leftPadding + xAxisStartGap + (effectivePlotWidth / 2)
-                : leftPadding + xAxisStartGap + (index * stepX);
+                : leftPadding + xAxisStartGap + centeredOffsetX + (index * stepX);
             return {
                 ...item,
                 x,
@@ -177,6 +190,7 @@ export default function StudentDashboard() {
         return {
             chartWidth,
             chartHeight,
+            shouldUseHorizontalScroll,
             leftPadding,
             rightPadding,
             topPadding,
@@ -185,11 +199,11 @@ export default function StudentDashboard() {
             xAxisLabelY,
             xAxisStartGap,
             xAxisEndGap,
-            labelRotation: isMobileViewport ? -35 : -45,
-            xLabelFontSize: isMobileViewport ? 11 : 12,
-            yTickFontSize: isMobileViewport ? 9 : 10,
-            pointRadius: isMobileViewport ? 4.5 : 5.2,
-            pointHaloRadius: isMobileViewport ? 7.5 : 9,
+            labelRotation: isVeryNarrowContainer ? -28 : (isNarrowContainer ? -35 : -45),
+            xLabelFontSize: isVeryNarrowContainer ? 10 : (isNarrowContainer ? 11 : 12),
+            yTickFontSize: isVeryNarrowContainer ? 8 : (isNarrowContainer ? 9 : 10),
+            pointRadius: isVeryNarrowContainer ? 4 : (isMobileViewport ? 4.5 : 5.2),
+            pointHaloRadius: isVeryNarrowContainer ? 6.5 : (isMobileViewport ? 7.5 : 9),
             plottedPoints,
             yTicks,
             curvePath: curvedLinePath(plottedPoints),
@@ -197,7 +211,7 @@ export default function StudentDashboard() {
                 ? `${curvedLinePath(plottedPoints)} L ${plottedPoints[plottedPoints.length - 1].x} ${xAxisY} L ${plottedPoints[0].x} ${xAxisY} Z`
                 : '',
         };
-    }, [marksAnalysis, viewportWidth]);
+    }, [marksAnalysis, viewportWidth, marksChartContainerWidth]);
 
     useEffect(() => {
         loadSubjects();
@@ -230,12 +244,25 @@ export default function StudentDashboard() {
     }, []);
 
     useEffect(() => {
-        if (graphSubjectFilter === 'all') return;
-        const exists = graphSubjectOptions.some((option) => option.id === graphSubjectFilter);
-        if (!exists) {
-            setGraphSubjectFilter('all');
+        const container = marksChartContainerRef.current;
+        if (!container) return undefined;
+
+        const updateWidth = () => {
+            setMarksChartContainerWidth(container.clientWidth || 0);
+        };
+
+        updateWidth();
+
+        if (typeof ResizeObserver === 'undefined') {
+            window.addEventListener('resize', updateWidth);
+            return () => window.removeEventListener('resize', updateWidth);
         }
-    }, [graphSubjectFilter, graphSubjectOptions]);
+
+        const observer = new ResizeObserver(updateWidth);
+        observer.observe(container);
+
+        return () => observer.disconnect();
+    }, [isTestsView, marksAnalysis.attempts.length]);
 
     const loadSubjects = async () => {
         setFetching(true);
@@ -376,14 +403,21 @@ export default function StudentDashboard() {
                                             <span>🏫 {s.branch}</span>
                                         </div>
                                         <div className="flex items-center justify-between mt-3">
-                                            {s.teacher_picture ? (
+                                            {hasAvatar(`subject-teacher-${s.id}`, getPictureUrl(s.teacher_picture)) ? (
                                                 <div className="flex items-center gap-2">
-                                                    <img src={s.teacher_picture} alt={s.teacher_name} className="avatar avatar-sm" />
+                                                    <img
+                                                        src={getPictureUrl(s.teacher_picture)}
+                                                        alt={s.teacher_name}
+                                                        className="avatar avatar-sm"
+                                                        onError={() => markAvatarError(`subject-teacher-${s.id}`)}
+                                                    />
                                                     <span className="text-sm text-muted">{s.teacher_name}</span>
                                                 </div>
                                             ) : (
                                                 <div className="flex items-center gap-2">
-                                                    <div className="avatar avatar-sm avatar-placeholder">{s.teacher_name?.[0]}</div>
+                                                    <div className="avatar avatar-sm avatar-placeholder" style={{ background: getAvatarFallback(s.teacher_name || '').background }}>
+                                                        {getAvatarFallback(s.teacher_name || '').initial}
+                                                    </div>
                                                     <span className="text-sm text-muted">{s.teacher_name}</span>
                                                 </div>
                                             )}
@@ -656,19 +690,27 @@ export default function StudentDashboard() {
                                         </div>
                                     ) : (
                                         <>
-                                            <div style={{ width: '100%', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '0.35rem' }}>
-                                                <div style={{ width: `${marksChart.chartWidth}px` }}>
+                                            <div ref={marksChartContainerRef} style={{ width: '100%', overflowX: marksChart.shouldUseHorizontalScroll ? 'auto' : 'hidden', overflowY: 'hidden', paddingBottom: '0.35rem' }}>
+                                                <div style={{ width: marksChart.shouldUseHorizontalScroll ? `${marksChart.chartWidth}px` : '100%' }}>
                                                     <svg
                                                         width={marksChart.chartWidth}
                                                         viewBox={`0 0 ${marksChart.chartWidth} ${marksChart.chartHeight}`}
-                                                        preserveAspectRatio="none"
-                                                        style={{ height: `${marksChart.chartHeight}px`, overflow: 'visible' }}
+                                                        preserveAspectRatio="xMinYMin meet"
+                                                        style={{ height: `${marksChart.chartHeight}px`, overflow: 'hidden' }}
                                                     >
                                                         <defs>
                                                             <linearGradient id="marksAreaFill" x1="0" y1="0" x2="0" y2="1">
                                                                 <stop offset="0%" stopColor="var(--accent-light)" stopOpacity="0.35" />
                                                                 <stop offset="100%" stopColor="var(--accent-light)" stopOpacity="0.02" />
                                                             </linearGradient>
+                                                            <clipPath id="marksPlotClip">
+                                                                <rect
+                                                                    x={marksChart.leftPadding}
+                                                                    y={marksChart.topPadding}
+                                                                    width={Math.max(1, marksChart.chartWidth - marksChart.leftPadding - marksChart.rightPadding)}
+                                                                    height={Math.max(1, marksChart.xAxisY - marksChart.topPadding)}
+                                                                />
+                                                            </clipPath>
                                                         </defs>
 
                                                         {marksChart.yTicks.map((tick) => (
@@ -731,51 +773,56 @@ export default function StudentDashboard() {
                                                             />
                                                         ))}
 
-                                                        <path
-                                                            d={marksChart.areaPath}
-                                                            fill="url(#marksAreaFill)"
-                                                        />
+                                                        <g clipPath="url(#marksPlotClip)">
+                                                            <path
+                                                                d={marksChart.areaPath}
+                                                                fill="url(#marksAreaFill)"
+                                                            />
 
-                                                        <path
-                                                            d={marksChart.curvePath}
-                                                            fill="none"
-                                                            stroke="var(--accent)"
-                                                            strokeWidth="3.2"
-                                                            strokeLinecap="round"
-                                                        />
+                                                            <path
+                                                                d={marksChart.curvePath}
+                                                                fill="none"
+                                                                stroke="var(--accent)"
+                                                                strokeWidth="3.2"
+                                                                strokeLinecap="round"
+                                                            />
+
+                                                            {marksChart.plottedPoints.map((item, index) => (
+                                                                <g key={`point-${item.id}-${index}`}>
+                                                                    <circle cx={item.x} cy={item.y} r={marksChart.pointHaloRadius} fill="var(--accent-light)" fillOpacity="0.2" />
+                                                                    <circle cx={item.x} cy={item.y} r={marksChart.pointRadius} fill="var(--accent-light)" stroke="var(--bg-primary)" strokeWidth="2" />
+                                                                    <text
+                                                                        x={item.x}
+                                                                        y={item.y - 12}
+                                                                        textAnchor="middle"
+                                                                        fontSize="11"
+                                                                        fill="var(--text-secondary)"
+                                                                        style={{ fontWeight: 700 }}
+                                                                    >
+                                                                        {Math.round(item.marks)}%
+                                                                    </text>
+                                                                </g>
+                                                            ))}
+                                                        </g>
 
                                                         {marksChart.plottedPoints.map((item, index) => (
-                                                            <g key={`point-${item.id}-${index}`}>
-                                                                <circle cx={item.x} cy={item.y} r={marksChart.pointHaloRadius} fill="var(--accent-light)" fillOpacity="0.2" />
-                                                                <circle cx={item.x} cy={item.y} r={marksChart.pointRadius} fill="var(--accent-light)" stroke="var(--bg-primary)" strokeWidth="2" />
-                                                                <text
-                                                                    x={item.x}
-                                                                    y={item.y - 12}
-                                                                    textAnchor="middle"
-                                                                    fontSize="11"
-                                                                    fill="var(--text-secondary)"
-                                                                    style={{ fontWeight: 700 }}
-                                                                >
-                                                                    {Math.round(item.marks)}%
-                                                                </text>
-
-                                                                <text
-                                                                    x={item.x}
-                                                                    y={marksChart.xAxisLabelY}
-                                                                    textAnchor="middle"
-                                                                    fontSize={marksChart.xLabelFontSize}
-                                                                    fill="var(--accent)"
-                                                                    style={{
-                                                                        cursor: 'pointer',
-                                                                        fontWeight: 700,
-                                                                    }}
-                                                                    transform={`rotate(${marksChart.labelRotation} ${item.x} ${marksChart.xAxisLabelY})`}
-                                                                    onClick={() => navigate(`/student/subject/${item.subjectId}?tab=tests`)}
-                                                                >
-                                                                    <title>{`${item.title} • ${item.fullDateLabel}`}</title>
-                                                                    {item.title}
-                                                                </text>
-                                                            </g>
+                                                            <text
+                                                                key={`x-label-${item.id}-${index}`}
+                                                                x={item.x}
+                                                                y={marksChart.xAxisLabelY}
+                                                                textAnchor="middle"
+                                                                fontSize={marksChart.xLabelFontSize}
+                                                                fill="var(--accent)"
+                                                                style={{
+                                                                    cursor: 'pointer',
+                                                                    fontWeight: 700,
+                                                                }}
+                                                                transform={`rotate(${marksChart.labelRotation} ${item.x} ${marksChart.xAxisLabelY})`}
+                                                                onClick={() => navigate(`/student/subject/${item.subjectId}?tab=tests`)}
+                                                            >
+                                                                <title>{`${item.title} • ${item.fullDateLabel}`}</title>
+                                                                {item.title}
+                                                            </text>
                                                         ))}
                                                     </svg>
                                                 </div>

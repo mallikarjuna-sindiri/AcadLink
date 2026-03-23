@@ -480,6 +480,21 @@ export default function TeacherSubjectDetail() {
         setResetAttemptCandidate(attempt);
     };
 
+    const deleteTest = async (testId, testTitle) => {
+        if (!confirm(`Delete test "${testTitle}"? This cannot be undone.`)) return;
+        try {
+            await api.delete(`/api/subjects/${subjectId}/tests/${testId}`);
+            setTests((prev) => prev.filter((test) => test.id !== testId));
+            if (selectedTest === testId) {
+                setSelectedTest('');
+                setAttempts([]);
+            }
+            toast.success('Test deleted successfully');
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Failed to delete test');
+        }
+    };
+
     const confirmResetAttempt = async () => {
         if (!selectedTest || !resetAttemptCandidate) return;
 
@@ -884,7 +899,10 @@ export default function TeacherSubjectDetail() {
                             <div className="grid-2">
                                 {tests.map(t => (
                                     <div key={t.id} className="card">
-                                        <h3 style={{ marginBottom: '0.3rem' }}>{t.title}</h3>
+                                        <div className="flex justify-between items-start" style={{ gap: '0.75rem', marginBottom: '0.3rem' }}>
+                                            <h3 style={{ marginBottom: 0 }}>{t.title}</h3>
+                                            <button className="btn btn-danger btn-sm" onClick={() => deleteTest(t.id, t.title)}>Delete</button>
+                                        </div>
                                         <div className="flex gap-3 text-xs text-muted mb-3">
                                             <span>⏱ {t.time_limit_minutes} min</span>
                                             <span>❓ {t.question_count} questions</span>

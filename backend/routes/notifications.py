@@ -168,24 +168,25 @@ async def get_notifications(
             "created_at": item.get("created_at", ""),
         })
 
-    chat_query = {"subject_id": {"$in": subject_ids}} if subject_ids else {"subject_id": {"$in": []}}
-    if since:
-        chat_query["sent_at"] = {"$gte": since}
-    if role in ("student", "teacher"):
-        chat_query["sender_id"] = {"$ne": current_user["id"]}
+    if role != "admin":
+        chat_query = {"subject_id": {"$in": subject_ids}} if subject_ids else {"subject_id": {"$in": []}}
+        if since:
+            chat_query["sent_at"] = {"$gte": since}
+        if role in ("student", "teacher"):
+            chat_query["sender_id"] = {"$ne": current_user["id"]}
 
-    chat_items = await chat_messages_collection.find(chat_query).sort("sent_at", -1).to_list(source_limit) if subject_ids else []
-    for item in chat_items:
-        sid = normalize_subject_id(item.get("subject_id"))
-        events.append({
-            "id": f"chat_{str(item['_id'])}",
-            "type": "chat",
-            "subject_id": sid,
-            "subject_name": subject_name_map.get(sid, "Subject"),
-            "title": "New chat message",
-            "message": f"{item.get('sender_name', 'Someone')}: {item.get('message', '')[:50]}",
-            "created_at": item.get("sent_at", ""),
-        })
+        chat_items = await chat_messages_collection.find(chat_query).sort("sent_at", -1).to_list(source_limit) if subject_ids else []
+        for item in chat_items:
+            sid = normalize_subject_id(item.get("subject_id"))
+            events.append({
+                "id": f"chat_{str(item['_id'])}",
+                "type": "chat",
+                "subject_id": sid,
+                "subject_name": subject_name_map.get(sid, "Subject"),
+                "title": "New chat message",
+                "message": f"{item.get('sender_name', 'Someone')}: {item.get('message', '')[:50]}",
+                "created_at": item.get("sent_at", ""),
+            })
 
     events.sort(key=lambda e: e.get("created_at") or "", reverse=True)
     scoped_events = events[:limit]
@@ -223,6 +224,12 @@ async def get_notifications(
                     "user_id": viewer_id,
                     "type": {"$ne": "subject_deleted"},
                 })
+
+        if role == "admin":
+            await user_notifications_collection.delete_many({
+                "user_id": viewer_id,
+                "type": "chat",
+            })
 
         read_query = {"user_id": viewer_id}
         if since:
