@@ -30,7 +30,7 @@ export default function StudentDashboard() {
     };
 
     const marksAnalysis = useMemo(() => {
-        const attempts = graphSourceTests
+        const attempts = myTests
             .filter(test => test.my_attempt?.attempted)
             .map(test => {
                 const submittedAt = test.my_attempt?.submitted_at;
@@ -54,7 +54,7 @@ export default function StudentDashboard() {
             .filter(item => item.date)
             .sort((a, b) => a.date - b.date);
 
-        const totalTests = graphSourceTests.length;
+        const totalTests = myTests.length;
         const attemptedTests = attempts.length;
         const averageMarks = attemptedTests
             ? Math.round(attempts.reduce((sum, item) => sum + item.marks, 0) / attemptedTests)
@@ -72,7 +72,7 @@ export default function StudentDashboard() {
             bestMarks,
             lowestMarks,
         };
-    }, [graphSourceTests]);
+    }, [myTests]);
 
     const attemptedTestsList = useMemo(
         () => myTests.filter((test) => test.my_attempt?.attempted),
