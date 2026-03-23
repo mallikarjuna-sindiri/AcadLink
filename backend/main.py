@@ -13,8 +13,13 @@ security = HTTPBasic()
 logger = logging.getLogger(__name__)
 
 def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
-    correct_username = secrets.compare_digest(credentials.username, os.getenv("SWAGGER_USER", "root"))
-    correct_password = secrets.compare_digest(credentials.password, os.getenv("SWAGGER_PASSWORD", "admin"))
+    swagger_user = os.getenv("SWAGGER_USER", "root")
+    swagger_password = os.getenv("SWAGGER_PASSWORD", "admin")
+    if swagger_password == "admin":
+        logger.warning("SWAGGER_PASSWORD is using default value. Change this in production.")
+
+    correct_username = secrets.compare_digest(credentials.username, swagger_user)
+    correct_password = secrets.compare_digest(credentials.password, swagger_password)
     if not (correct_username and correct_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
