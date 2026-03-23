@@ -1,10 +1,12 @@
 /* eslint-disable no-unused-vars */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import Sidebar from '../components/Sidebar';
 import toast from 'react-hot-toast';
 import { getAvatarFallback, getUserPicture, resolveAvatarUrl } from '../utils/avatar';
+
+const ADMIN_TAB_OPTIONS = ['overview', 'teachers', 'students', 'subjects', 'holidays'];
 
 export default function AdminDashboard() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -23,7 +25,6 @@ export default function AdminDashboard() {
     const yearOptions = ['2025', '2026', '2027'];
     const [selectedHolidayYear, setSelectedHolidayYear] = useState('2026');
     const [availableHolidayYears, setAvailableHolidayYears] = useState([]);
-    const adminTabOptions = ['overview', 'teachers', 'students', 'subjects', 'holidays'];
 
     const holidayYearOptions = [...new Set([...yearOptions, ...availableHolidayYears])]
         .filter((year) => /^\d{4}$/.test(String(year)))
@@ -68,7 +69,7 @@ export default function AdminDashboard() {
             setActiveTab('overview');
             return;
         }
-        if (adminTabOptions.includes(urlTab)) {
+        if (ADMIN_TAB_OPTIONS.includes(urlTab)) {
             setActiveTab(urlTab);
             return;
         }
@@ -79,11 +80,6 @@ export default function AdminDashboard() {
         setActiveTab(tabId);
         setSearchParams({ tab: tabId });
     };
-
-    useEffect(() => {
-        if (activeTab !== 'holidays') return;
-        loadHolidayList(selectedHolidayYear);
-    }, [activeTab, selectedHolidayYear]);
 
     const loadDashboard = async () => {
         try {
@@ -190,7 +186,7 @@ export default function AdminDashboard() {
         }
     };
 
-    const loadHolidayList = async (year) => {
+    const loadHolidayList = useCallback(async (year) => {
         const targetYear = year || selectedHolidayYear;
         try {
             const query = targetYear ? `?year=${targetYear}` : '';
@@ -206,7 +202,12 @@ export default function AdminDashboard() {
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Failed to load holiday list');
         }
-    };
+    }, [selectedHolidayYear]);
+
+    useEffect(() => {
+        if (activeTab !== 'holidays') return;
+        loadHolidayList(selectedHolidayYear);
+    }, [activeTab, selectedHolidayYear, loadHolidayList]);
 
     const TABS = [
         { id: 'overview', label: '📊 Overview' },
